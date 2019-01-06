@@ -317,8 +317,8 @@ BaseType_t xPortStartScheduler( void )
 	#endif /* conifgASSERT_DEFINED */
 
 	/* Make PendSV and SysTick the lowest priority interrupts. */
-	portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;
-	portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;
+	portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;	//设置PendSV中断优先级
+	portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;	//设置SysTick中断优先级
 
 	/* Start the timer that generates the tick ISR.  Interrupts are disabled
 	here already. */

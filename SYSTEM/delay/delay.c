@@ -30,6 +30,7 @@ void SysTick_Handler(void)
 void delay_init()
 {
 	u32 reload;
+	
 	SysTick_CLKSourceConfig(SysTick_CLKSource_HCLK);//选择外部时钟  HCLK
 	fac_us=SystemCoreClock/1000000;				//不论是否使用OS,fac_us都需要使用
 	reload=SystemCoreClock/1000000;				//每秒钟的计数次数 单位为M  
@@ -53,6 +54,7 @@ void delay_us(u32 nus)
 	u32 reload=SysTick->LOAD;				//LOAD的值	    	 
 	ticks=nus*fac_us; 						//需要的节拍数 
 	told=SysTick->VAL;        				//刚进入时的计数器值
+	
 	while(1)
 	{
 		tnow=SysTick->VAL;	

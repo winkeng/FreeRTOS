@@ -87,7 +87,7 @@
 /*                                        FreeRTOS基础配置配置选项                                              */
 /***************************************************************************************************************/
 #define configUSE_PREEMPTION					1                       //1使用抢占式内核，0使用协程
-#define configUSE_TIME_SLICING					1						//1使能时间片调度(默认式使能的)
+#define configUSE_TIME_SLICING					1						//1使能时间片调度(默认是使能的) --》处于就绪态的优先级相同的任务就会使用时间片轮转调度器获取运行时间
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION	1                       //1启用特殊方法来选择下一个要运行的任务
                                                                         //一般是硬件计算前导零指令，如果所使用的
                                                                         //MCU没有这些硬件指令的话此宏应该设置为0！
@@ -169,7 +169,7 @@
 #ifdef __NVIC_PRIO_BITS
 	#define configPRIO_BITS       		__NVIC_PRIO_BITS
 #else
-	#define configPRIO_BITS       		4                  
+	#define configPRIO_BITS       		4
 #endif
 
 #define configLIBRARY_LOWEST_INTERRUPT_PRIORITY			15                      //中断最低优先级
