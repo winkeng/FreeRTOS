@@ -394,6 +394,11 @@
               <FileType>1</FileType>
               <FilePath>.\system_stm32f10x.c</FilePath>
             </File>
+            <File>
+              <FileName>FreeRTOSConfig.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\FreeRTOS\include\FreeRTOSConfig.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
