@@ -287,7 +287,7 @@ uint32_t ulPreviousMask;
 		if( xTaskIncrementTick() != pdFALSE )
 		{
 			/* Pend a context switch. */
-			*(portNVIC_INT_CTRL) = portNVIC_PENDSVSET;
+			*(portNVIC_INT_CTRL) = portNVIC_PENDSVSET;	/* 向ICSR的bit28写入1以启动PendSV中断 */
 		}
 	}
 	portCLEAR_INTERRUPT_MASK_FROM_ISR( ulPreviousMask );

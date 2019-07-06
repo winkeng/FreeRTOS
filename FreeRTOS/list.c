@@ -34,6 +34,7 @@
  * PUBLIC LIST API documented in list.h
  *----------------------------------------------------------*/
 
+//列表初始化
 void vListInitialise( List_t * const pxList )
 {
 	/* The list structure contains a list item which is used to mark the
@@ -59,9 +60,10 @@ void vListInitialise( List_t * const pxList )
 }
 /*-----------------------------------------------------------*/
 
+//列表项(链表节点)初始化
 void vListInitialiseItem( ListItem_t * const pxItem )
 {
-	/* Make sure the list item is not recorded as being on a list. */
+	/* 初始化列表项所在的列表为空，表示该列表项还没有插入任何列表 Make sure the list item is not recorded as being on a list. */
 	pxItem->pxContainer = NULL;
 
 	/* Write known values into the list item if
@@ -71,6 +73,7 @@ void vListInitialiseItem( ListItem_t * const pxItem )
 }
 /*-----------------------------------------------------------*/
 
+//将列表项插入到列表的尾部
 void vListInsertEnd( List_t * const pxList, ListItem_t * const pxNewListItem )
 {
 ListItem_t * const pxIndex = pxList->pxIndex;
@@ -100,6 +103,7 @@ ListItem_t * const pxIndex = pxList->pxIndex;
 }
 /*-----------------------------------------------------------*/
 
+//将列表项按照升序排列插入到列表
 void vListInsert( List_t * const pxList, ListItem_t * const pxNewListItem )
 {
 ListItem_t *pxIterator;

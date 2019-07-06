@@ -191,11 +191,11 @@ StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t px
 	of interrupts, and to ensure alignment. */
 	pxTopOfStack--;
 
-	*pxTopOfStack = portINITIAL_XPSR;	/* xPSR */
+	*pxTopOfStack = portINITIAL_XPSR;	/* xPSR 	bit24为1，表示处于Thumb状态 */
 	pxTopOfStack--;
-	*pxTopOfStack = ( ( StackType_t ) pxCode ) & portSTART_ADDRESS_MASK;	/* PC */
+	*pxTopOfStack = ( ( StackType_t ) pxCode ) & portSTART_ADDRESS_MASK;	/* PC 	寄存器PC初始化任务函数为pxCode	*/
 	pxTopOfStack--;
-	*pxTopOfStack = ( StackType_t ) prvTaskExitError;	/* LR */
+	*pxTopOfStack = ( StackType_t ) prvTaskExitError;	/* LR 寄存器LR初始化函数为	prvTaskExitError*/
 
 	/* Save code space by skipping register initialisation. */
 	pxTopOfStack -= 5;	/* R12, R3, R2 and R1. */

@@ -204,7 +204,7 @@ static void prvTaskExitError( void )
 	for( ;; );
 }
 /*-----------------------------------------------------------*/
-
+ 
 __asm void vPortSVCHandler( void )
 {
 	PRESERVE8
@@ -212,12 +212,13 @@ __asm void vPortSVCHandler( void )
 	ldr	r3, =pxCurrentTCB	/* Restore the context. */
 	ldr r1, [r3]			/* Use pxCurrentTCBConst to get the pxCurrentTCB address. */
 	ldr r0, [r1]			/* The first item in pxCurrentTCB is the task top of stack. */
+	/* 上面三行代码为了获取要切换到当前任务的任务栈顶指针 -@vincent */
 	ldmia r0!, {r4-r11}		/* Pop the registers that are not automatically saved on exception entry and the critical nesting count. */
 	msr psp, r0				/* Restore the task stack pointer. */
 	isb
 	mov r0, #0
 	msr	basepri, r0
-	orr r14, #0xd
+	orr r14, #0xd	/* 退出异常，进入线程模式且使用PSP 	EXC_RETURN值 P139	@vincent */
 	bx r14
 }
 /*-----------------------------------------------------------*/
@@ -230,7 +231,8 @@ __asm void prvStartFirstTask( void )
 	ldr r0, =0xE000ED08
 	ldr r0, [r0]
 	ldr r0, [r0]
-
+	/* 上面三行代码为了获取MSP的初始值 -@vincent */
+	
 	/* Set the msp back to the start of the stack. */
 	msr msp, r0
 	/* Globally enable interrupts. */
@@ -238,7 +240,7 @@ __asm void prvStartFirstTask( void )
 	cpsie f
 	dsb
 	isb
-	/* Call SVC to start the first task. */
+	/* Call SVC to start the first task. 调用SVC的0号系统服务，触发SVC中断，第一个任务的启动就在SVC中断服务函数完成 */
 	svc 0
 	nop
 	nop
@@ -246,7 +248,7 @@ __asm void prvStartFirstTask( void )
 /*-----------------------------------------------------------*/
 
 /*
- * See header file for description.
+ * See header file for description. 内核相关硬件初始化
  */
 BaseType_t xPortStartScheduler( void )
 {
@@ -322,14 +324,14 @@ BaseType_t xPortStartScheduler( void )
 
 	/* Start the timer that generates the tick ISR.  Interrupts are disabled
 	here already. */
-	vPortSetupTimerInterrupt();
+	vPortSetupTimerInterrupt(); //开启定时器，为系统提供一个系统节拍
 
 	/* Initialise the critical nesting count ready for the first task. */
 	uxCriticalNesting = 0;
-
+	
 	/* Start the first task. */
 	prvStartFirstTask();
-
+	
 	/* Should not get here! */
 	return 0;
 }
@@ -385,7 +387,7 @@ __asm void xPortPendSVHandler( void )
 	ldr	r3, =pxCurrentTCB		/* Get the location of the current TCB. */
 	ldr	r2, [r3]
 
-	stmdb r0!, {r4-r11}			/* Save the remaining registers. */
+	stmdb r0!, {r4-r11}			/* Save the remaining registers. 相当于push操作 */
 	str r0, [r2]				/* Save the new top of stack into the first member of the TCB. */
 
 	stmdb sp!, {r3, r14}
@@ -393,7 +395,7 @@ __asm void xPortPendSVHandler( void )
 	msr basepri, r0
 	dsb
 	isb
-	bl vTaskSwitchContext
+	bl vTaskSwitchContext		/* 获取下一个要运行的任务，并将pxCurrentTCB更新为这个要运行的任务 */
 	mov r0, #0
 	msr basepri, r0
 	ldmia sp!, {r3, r14}
@@ -415,17 +417,18 @@ void xPortSysTickHandler( void )
 	save and then restore the interrupt mask value as its value is already
 	known - therefore the slightly faster vPortRaiseBASEPRI() function is used
 	in place of portSET_INTERRUPT_MASK_FROM_ISR(). */
-	vPortRaiseBASEPRI();
+	vPortRaiseBASEPRI();	//关闭中断
 	{
 		/* Increment the RTOS tick. */
 		if( xTaskIncrementTick() != pdFALSE )
 		{
 			/* A context switch is required.  Context switching is performed in
 			the PendSV interrupt.  Pend the PendSV interrupt. */
+			/* 启动PendSV中断，这样就可以在PendSV中断服务函数中进行任务切换了 */
 			portNVIC_INT_CTRL_REG = portNVIC_PENDSVSET_BIT;
 		}
 	}
-	vPortClearBASEPRIFromISR();
+	vPortClearBASEPRIFromISR();	//打开中断
 }
 /*-----------------------------------------------------------*/
 
