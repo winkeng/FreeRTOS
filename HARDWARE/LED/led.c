@@ -28,7 +28,7 @@ void LED_Init(void)
 	GPIO_SetBits(GPIOC, GPIO_Pin_13); //¹Ø±ÕLED						 
 }
  
-void LED_Toggle(void)
+void LED1_Toggle(void)
 {
 	for(toggle_cnt=0;toggle_cnt<5;toggle_cnt++)
 	{
@@ -39,3 +39,17 @@ void LED_Toggle(void)
 	}
 			toggle_cnt=0;
 }
+
+
+void LED2_Toggle(void)
+{
+	for(toggle_cnt=0;toggle_cnt<5;toggle_cnt++)
+	{
+			GPIO_ResetBits(GPIOC,GPIO_Pin_13);
+			delay_ms(200);
+			GPIO_SetBits(GPIOC,GPIO_Pin_13);
+			delay_ms(200);
+	}
+			toggle_cnt=0;
+}
+

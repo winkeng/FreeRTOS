@@ -162,7 +162,6 @@
 #define INCLUDE_vTaskDelay				        1
 #define INCLUDE_eTaskGetState			        1
 #define INCLUDE_xTimerPendFunctionCall	        1
-#define INCLUDE_xTaskGetHandle            1
 
 /***************************************************************************************************************/
 /*                                FreeRTOS与中断有关的配置选项                                                  */
@@ -173,7 +172,7 @@
 	#define configPRIO_BITS       		4
 #endif
 
-#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY       15 //中断最低优先级(0：为优先级最高       15：为优先级最低)
+#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY       15 //中断最低优先级(0：为优先级最高    15：为优先级最低)
 #define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY	5  //系统可管理的最高中断优先级
 #define configKERNEL_INTERRUPT_PRIORITY 		( configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY 	( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )

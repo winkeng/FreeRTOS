@@ -274,7 +274,7 @@ typedef struct tskTaskControlBlock /* The old naming convention is used to preve
 		xMPU_SETTINGS	xMPUSettings;		/*< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
 	#endif
 
-	ListItem_t			xStateListItem;	    /*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
+	ListItem_t			xStateListItem;	/*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
 	ListItem_t			xEventListItem;		/*< Used to reference a task from an event list. */
 	UBaseType_t			uxPriority;			/*< The priority of the task.  0 is the lowest priority. */
 	StackType_t			*pxStack;			/*< Points to the start of the stack. */
@@ -354,7 +354,7 @@ PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 xDelayedTaskList1 and xDelayedTaskList2 could be move to function scople but
 doing so breaks some kernel aware debuggers and debuggers that rely on removing
 the static qualifier. */
-PRIVILEGED_DATA static List_t pxReadyTasksLists[ configMAX_PRIORITIES ];/*< 任务就绪列表 Prioritised ready tasks. */
+PRIVILEGED_DATA static List_t pxReadyTasksLists[ configMAX_PRIORITIES ];/*< Prioritised ready tasks. */
 PRIVILEGED_DATA static List_t xDelayedTaskList1;						/*< Delayed tasks. */
 PRIVILEGED_DATA static List_t xDelayedTaskList2;						/*< Delayed tasks (two lists are used - one for delays that have overflowed the current tick count. */
 PRIVILEGED_DATA static List_t * volatile pxDelayedTaskList;				/*< Points to the delayed task list currently being used. */
@@ -877,9 +877,8 @@ UBaseType_t x;
 	by the port. */
 	#if( portSTACK_GROWTH < 0 )
 	{
-		/* 获取栈顶地址 */
+		/*计算堆栈栈顶*/
 		pxTopOfStack = &( pxNewTCB->pxStack[ ulStackDepth - ( uint32_t ) 1 ] );
-		/* 向下做8字节对齐 */
 		pxTopOfStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) ); /*lint !e923 !e9033 !e9078 MISRA exception.  Avoiding casts between pointers and integers is not practical.  Size differences accounted for using portPOINTER_SIZE_TYPE type.  Checked by assert(). */
 
 		/* Check the alignment of the calculated top of stack is correct. */
@@ -930,7 +929,6 @@ UBaseType_t x;
 
 	/* This is used as an array index so must ensure it's not too large.  First
 	remove the privilege bit if one is present. */
-	/* 判断任务优先级是否合法 */
 	if( uxPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
 	{
 		uxPriority = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
@@ -1113,7 +1111,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 		then it should run now. */
 		if( pxCurrentTCB->uxPriority < pxNewTCB->uxPriority )	//如果新任务的任务优先级最高，则调用taskYIELD_IF_USING_PREEMPTION()完成一次任务切换
 		{
-			taskYIELD_IF_USING_PREEMPTION(); /* 完成一次任务切换 */
+			taskYIELD_IF_USING_PREEMPTION();
 		}
 		else
 		{
@@ -1137,10 +1135,10 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 		{
 			/* If null is passed in here then it is the calling task that is
 			being deleted. */
-			/* 如果xTaskToDelete参数为NULL，说明调用vTaskDelete()的任务要删除自身 */
+			/* 如果参数为NULL，说明调用vTaskDelete()的任务要删除自身 */
 			pxTCB = prvGetTCBFromHandle( xTaskToDelete );	//获取要删除任务的任务控制块
 
-			/* 将任务从就绪列表中删除 Remove task from the ready list. */
+			/* Remove task from the ready list. */
 			if( uxListRemove( &( pxTCB->xStateListItem ) ) == ( UBaseType_t ) 0 )
 			{
 				taskRESET_READY_PRIORITY( pxTCB->uxPriority );
@@ -1351,7 +1349,6 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 #endif /* INCLUDE_vTaskDelay */
 /*-----------------------------------------------------------*/
 
-/* 获取某个任务的状态 */
 #if( ( INCLUDE_eTaskGetState == 1 ) || ( configUSE_TRACE_FACILITY == 1 ) )
 
 	eTaskState eTaskGetState( TaskHandle_t xTask )
@@ -1446,7 +1443,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 
 #if ( INCLUDE_uxTaskPriorityGet == 1 )
 
-	UBaseType_t uxTaskPriorityGet( const TaskHandle_t xTask ) //查询某个任务的优先级
+	UBaseType_t uxTaskPriorityGet( const TaskHandle_t xTask )
 	{
 	TCB_t const *pxTCB;
 	UBaseType_t uxReturn;
@@ -1508,7 +1505,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 
 #if ( INCLUDE_vTaskPrioritySet == 1 )
 
-	void vTaskPrioritySet( TaskHandle_t xTask, UBaseType_t uxNewPriority ) //改变某个任务的任务优先级
+	void vTaskPrioritySet( TaskHandle_t xTask, UBaseType_t uxNewPriority )
 	{
 	TCB_t *pxTCB;
 	UBaseType_t uxCurrentBasePriority, uxPriorityUsedOnEntry;
@@ -1680,7 +1677,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 		{
 			/* If null is passed in here then it is the running task that is
 			being suspended. */
-			//如果xTaskToSuspend参数为NULL，说明挂起自身
+			//如果参数为NULL，说明挂起自身
 			pxTCB = prvGetTCBFromHandle( xTaskToSuspend );
 
 			traceTASK_SUSPEND( pxTCB );
@@ -1707,7 +1704,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 				mtCOVERAGE_TEST_MARKER();
 			}
 
-			//将任务添加到挂起任务列表尾，挂起任务列表为xSuspendedTaskList，所有被挂起的任务都会被放到这个列表中
+			//将任务添加到挂起任务列表尾，挂起任务列表尾为xSuspendedTaskList，所有被挂起的任务都会被放到这个列表中
 			vListInsertEnd( &xSuspendedTaskList, &( pxTCB->xStateListItem ) );
 
 			#if( configUSE_TASK_NOTIFICATIONS == 1 )
@@ -1982,7 +1979,7 @@ BaseType_t xReturn;
 	}
 	#else
 	{
-		/* 创建空闲任务 The Idle task is being created using dynamically allocated RAM. */
+		/* The Idle task is being created using dynamically allocated RAM. */
 		xReturn = xTaskCreate(	prvIdleTask,
 								configIDLE_TASK_NAME,
 								configMINIMAL_STACK_SIZE,
@@ -1992,7 +1989,7 @@ BaseType_t xReturn;
 	}
 	#endif /* configSUPPORT_STATIC_ALLOCATION */
 
-	#if ( configUSE_TIMERS == 1 ) /* 软件定时器使能 */
+	#if ( configUSE_TIMERS == 1 )
 	{
 		if( xReturn == pdPASS )
 		{
@@ -2021,7 +2018,7 @@ BaseType_t xReturn;
 		the created tasks contain a status word with interrupts switched on
 		so interrupts will automatically get re-enabled when the first task
 		starts to run. */
-		portDISABLE_INTERRUPTS(); /* 关闭中断 */
+		portDISABLE_INTERRUPTS();
 
 		#if ( configUSE_NEWLIB_REENTRANT == 1 )
 		{
@@ -2041,13 +2038,12 @@ BaseType_t xReturn;
 		is set to 0 and the following line fails to build then ensure you do not
 		have portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() defined in your
 		FreeRTOSConfig.h file. */
-		portCONFIGURE_TIMER_FOR_RUN_TIME_STATS(); /* 是否使能时间统计功能 */
+		portCONFIGURE_TIMER_FOR_RUN_TIME_STATS();
 
 		traceTASK_SWITCHED_IN();
 
 		/* Setting up the timer tick is hardware specific and thus in the
 		portable interface. */
-		/* 初始化与调度器相关的硬件 */
 		if( xPortStartScheduler() != pdFALSE )
 		{
 			/* Should not reach here as if the scheduler is running the
@@ -2072,18 +2068,18 @@ BaseType_t xReturn;
 }
 /*-----------------------------------------------------------*/
 
-void vTaskEndScheduler( void ) //关闭任务调度器
+void vTaskEndScheduler( void )
 {
 	/* Stop the scheduler interrupts and call the portable scheduler end
 	routine so the original ISRs can be restored if necessary.  The port
 	layer must ensure interrupts enable	bit is left in the correct state. */
 	portDISABLE_INTERRUPTS();
 	xSchedulerRunning = pdFALSE;
-	vPortEndScheduler(); /* 调用硬件层关闭中断的处理函数 */
+	vPortEndScheduler();
 }
 /*----------------------------------------------------------*/
 
-void vTaskSuspendAll( void ) //挂起任务调度器
+void vTaskSuspendAll( void )
 {
 	/* A critical section is not required as the variable is of type
 	BaseType_t.  Please read Richard Barry's reply in the following link to a
@@ -2156,7 +2152,7 @@ void vTaskSuspendAll( void ) //挂起任务调度器
 #endif /* configUSE_TICKLESS_IDLE */
 /*----------------------------------------------------------*/
 
-BaseType_t xTaskResumeAll( void ) //恢复任务调度器
+BaseType_t xTaskResumeAll( void )
 {
 TCB_t *pxTCB = NULL;
 BaseType_t xAlreadyYielded = pdFALSE;
@@ -2172,7 +2168,7 @@ BaseType_t xAlreadyYielded = pdFALSE;
 	tasks from this list into their appropriate ready list. */
 	taskENTER_CRITICAL();
 	{
-		--uxSchedulerSuspended; //调度器挂起嵌套计数器减一
+		--uxSchedulerSuspended;
 
 		if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
 		{
@@ -2185,13 +2181,13 @@ BaseType_t xAlreadyYielded = pdFALSE;
 					pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xPendingReadyList ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
 					( void ) uxListRemove( &( pxTCB->xEventListItem ) );
 					( void ) uxListRemove( &( pxTCB->xStateListItem ) );
-					prvAddTaskToReadyList( pxTCB ); //将任务添加到就绪列表中
+					prvAddTaskToReadyList( pxTCB );
 
 					/* If the moved task has a priority higher than the current
 					task then a yield must be performed. */
 					if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
 					{
-						xYieldPending = pdTRUE; //需要进行任务切换
+						xYieldPending = pdTRUE;
 					}
 					else
 					{
@@ -2247,7 +2243,7 @@ BaseType_t xAlreadyYielded = pdFALSE;
 						xAlreadyYielded = pdTRUE;
 					}
 					#endif
-					taskYIELD_IF_USING_PREEMPTION(); //进行任务切换
+					taskYIELD_IF_USING_PREEMPTION();
 				}
 				else
 				{
@@ -2266,7 +2262,6 @@ BaseType_t xAlreadyYielded = pdFALSE;
 }
 /*-----------------------------------------------------------*/
 
-/* 获取系统时间计数器值 */
 TickType_t xTaskGetTickCount( void )
 {
 TickType_t xTicks;
@@ -2282,7 +2277,6 @@ TickType_t xTicks;
 }
 /*-----------------------------------------------------------*/
 
-/* 在中断服务函数中获取时间计数器值 */
 TickType_t xTaskGetTickCountFromISR( void )
 {
 TickType_t xReturn;
@@ -2314,7 +2308,6 @@ UBaseType_t uxSavedInterruptStatus;
 }
 /*-----------------------------------------------------------*/
 
-/* 获取当前系统中存在的任务数量 */
 UBaseType_t uxTaskGetNumberOfTasks( void )
 {
 	/* A critical section is not required because the variables are of type
@@ -2323,7 +2316,6 @@ UBaseType_t uxTaskGetNumberOfTasks( void )
 }
 /*-----------------------------------------------------------*/
 
-/* 获取某个任务的任务名字  */
 char *pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 {
 TCB_t *pxTCB;
@@ -2404,7 +2396,6 @@ TCB_t *pxTCB;
 #endif /* INCLUDE_xTaskGetHandle */
 /*-----------------------------------------------------------*/
 
-/* 根据任务名字查找某个任务的句柄 */
 #if ( INCLUDE_xTaskGetHandle == 1 )
 
 	TaskHandle_t xTaskGetHandle( const char *pcNameToQuery ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
@@ -2470,7 +2461,6 @@ TCB_t *pxTCB;
 #endif /* INCLUDE_xTaskGetHandle */
 /*-----------------------------------------------------------*/
 
-/* 获取系统中所有任务的任务状态 */
 #if ( configUSE_TRACE_FACILITY == 1 )
 
 	UBaseType_t uxTaskGetSystemState( TaskStatus_t * const pxTaskStatusArray, const UBaseType_t uxArraySize, uint32_t * const pulTotalRunTime )
@@ -2545,7 +2535,6 @@ TCB_t *pxTCB;
 #endif /* configUSE_TRACE_FACILITY */
 /*----------------------------------------------------------*/
 
-/* 获取空闲任务的任务句柄 */
 #if ( INCLUDE_xTaskGetIdleTaskHandle == 1 )
 
 	TaskHandle_t xTaskGetIdleTaskHandle( void )
@@ -2563,7 +2552,6 @@ TCB_t *pxTCB;
 This is to ensure vTaskStepTick() is available when user defined low power mode
 implementations require configUSE_TICKLESS_IDLE to be set to a value other than
 1. */
-/* 设置系统节拍值(此函数在使用FreeRTOS的低功耗tickless模式的时候会用到) */
 #if ( configUSE_TICKLESS_IDLE != 0 )
 
 	void vTaskStepTick( const TickType_t xTicksToJump )
@@ -2828,7 +2816,6 @@ BaseType_t xSwitchRequired = pdFALSE;
 }
 /*-----------------------------------------------------------*/
 
-/* 设置任务标签值 */
 #if ( configUSE_APPLICATION_TASK_TAG == 1 )
 
 	void vTaskSetApplicationTaskTag( TaskHandle_t xTask, TaskHookFunction_t pxHookFunction )
@@ -2858,7 +2845,6 @@ BaseType_t xSwitchRequired = pdFALSE;
 #endif /* configUSE_APPLICATION_TASK_TAG */
 /*-----------------------------------------------------------*/
 
-/* 获取某个任务的标签(tag)值 */
 #if ( configUSE_APPLICATION_TASK_TAG == 1 )
 
 	TaskHookFunction_t xTaskGetApplicationTaskTag( TaskHandle_t xTask )
@@ -2922,7 +2908,6 @@ BaseType_t xSwitchRequired = pdFALSE;
 #endif /* configUSE_APPLICATION_TASK_TAG */
 /*-----------------------------------------------------------*/
 
-/* 获取下一个要运行的任务 */
 void vTaskSwitchContext( void )
 {
 	/* 如果调度器挂起就不能进行任务切换 */
@@ -3468,7 +3453,6 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 #endif /* configUSE_TICKLESS_IDLE */
 /*-----------------------------------------------------------*/
 
-/* 设置线程本地存储指针 */
 #if ( configNUM_THREAD_LOCAL_STORAGE_POINTERS != 0 )
 
 	void vTaskSetThreadLocalStoragePointer( TaskHandle_t xTaskToSet, BaseType_t xIndex, void *pvValue )
@@ -3485,7 +3469,6 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 #endif /* configNUM_THREAD_LOCAL_STORAGE_POINTERS */
 /*-----------------------------------------------------------*/
 
-/* 获取线程本地存储指针 */
 #if ( configNUM_THREAD_LOCAL_STORAGE_POINTERS != 0 )
 
 	void *pvTaskGetThreadLocalStoragePointer( TaskHandle_t xTaskToQuery, BaseType_t xIndex )
@@ -3586,7 +3569,6 @@ static void prvCheckTasksWaitingTermination( void )
 }
 /*-----------------------------------------------------------*/
 
-/* 获取某个任务信息 */
 #if( configUSE_TRACE_FACILITY == 1 )
 
 	void vTaskGetInfo( TaskHandle_t xTask, TaskStatus_t *pxTaskStatus, BaseType_t xGetFreeStackSpace, eTaskState eState )
@@ -3736,7 +3718,6 @@ static void prvCheckTasksWaitingTermination( void )
 #endif /* ( ( configUSE_TRACE_FACILITY == 1 ) || ( INCLUDE_uxTaskGetStackHighWaterMark == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-/* 获取任务的堆栈的历史剩余最小值 */
 #if ( INCLUDE_uxTaskGetStackHighWaterMark == 1 )
 
 	UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask )
@@ -3845,7 +3826,6 @@ TCB_t *pxTCB;
 }
 /*-----------------------------------------------------------*/
 
-/* 获取当前正在运行的任务的任务句柄 */
 #if ( ( INCLUDE_xTaskGetCurrentTaskHandle == 1 ) || ( configUSE_MUTEXES == 1 ) )
 
 	TaskHandle_t xTaskGetCurrentTaskHandle( void )
@@ -3863,7 +3843,6 @@ TCB_t *pxTCB;
 #endif /* ( ( INCLUDE_xTaskGetCurrentTaskHandle == 1 ) || ( configUSE_MUTEXES == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-/* 获取任务调度器的状态      (开启/关闭)   	 */
 #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
 
 	BaseType_t xTaskGetSchedulerState( void )
@@ -4250,7 +4229,6 @@ TCB_t *pxTCB;
 #endif /* ( configUSE_TRACE_FACILITY == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) */
 /*-----------------------------------------------------------*/
 
-/* 以一种表格的形式输出当前系统中所有任务的详细信息 */
 #if ( ( configUSE_TRACE_FACILITY == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
 
 	void vTaskList( char * pcWriteBuffer )
@@ -4350,7 +4328,6 @@ TCB_t *pxTCB;
 #endif /* ( ( configUSE_TRACE_FACILITY == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) ) */
 /*----------------------------------------------------------*/
 
-/* 获取每个任务的运行时间 */
 #if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
 
 	void vTaskGetRunTimeStats( char *pcWriteBuffer )

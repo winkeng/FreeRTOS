@@ -388,7 +388,7 @@ __asm void xPortPendSVHandler( void )
 	/* 当进入xPortPendSVHandler()函数时，上一个任务运行的环境即：
 	   xPSR、R15(PC:任务入口地址)、R14、R12、R3、R2、R1、R0(任务的形参)，
 	   这些CPU寄存器的值会自动存储到任务的栈中，剩下的R11-R4需要手动保存
-       同时PSP会自动更新(在更新之前PSP指向任务栈的栈顶)	*/
+     同时PSP会自动更新(在更新之前PSP指向任务栈的栈顶)	*/
 	mrs r0, psp                 /* 获取进程栈指针 */    
 	isb
 	
@@ -397,8 +397,6 @@ __asm void xPortPendSVHandler( void )
 
 	stmdb r0!, {r4-r11}			/* 进栈操作 -- 保存R4-R11寄存器的值，同时更新R0的值 Save the remaining registers. 相当于push操作 */
 	str r0, [r2]				/* (*r2) = r0   Save the new top of stack into the first member of the TCB. */
-	/* 上面一行：将R0的值存储到上一个任务的栈顶指针pxTopOfStack
-	   到此，上下文切换中的上文保存就完成了 */
 
 	stmdb sp!, {r3, r14}        /* 将寄存器R3,R14临时压栈 */
 	mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY
@@ -408,7 +406,7 @@ __asm void xPortPendSVHandler( void )
 	bl vTaskSwitchContext		/* 获取下一个要运行的任务，并将pxCurrentTCB更新为这个要运行的任务 */
 	mov r0, #0
 	msr basepri, r0
-	ldmia sp!, {r3, r14}        /* 出栈操作 -- 刚刚保存的寄存器R3,R14的值出栈，注意，执行函数         vTaskSwitchContext      ()后，
+	ldmia sp!, {r3, r14}        /* 刚刚保存的寄存器R3,R14的值出栈，注意，执行函数         vTaskSwitchContext      ()后，
 	                               pxCurrentTCB的值已经发送变化 */
 
 	ldr r1, [r3]

@@ -6,6 +6,7 @@
 
 
 void LED_Init(void);//≥ı ºªØ
-void LED_Toggle(void);
+void LED1_Toggle(void);
+void LED2_Toggle(void);
 		 				    
 #endif

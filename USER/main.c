@@ -13,6 +13,7 @@
 #include "timer.h"
 #include "semphr.h"
 #include "key.h"
+#include "string.h"
 
 
 #define START_TASK_PRIO  1      		//任务优先级
@@ -28,14 +29,11 @@ void task1_task(void *pvParameters);   //任务函数
 #define TASK2_TASK_PRIO		    3      //任务优先级
 #define TASK2_STK_SIZE		    128    //任务堆栈大小
 TaskHandle_t Task2Task_Handler;		   //任务句柄
-void list_task(void *pvParameters);   //任务函数
+void task2_task(void *pvParameters);   //任务函数
 
 
-List_t TestList;
-ListItem_t ListItem1;
-ListItem_t ListItem2;
-ListItem_t ListItem3;
-
+//保存信息的数组
+char InfoBuffer[1000];
 
 
 /****
@@ -74,8 +72,8 @@ void start_task(void *pvParameters)
                 (UBaseType_t    )TASK1_TASK_PRIO,	
                 (TaskHandle_t*  )&Task1Task_Handler);    
     //创建TASK1任务
-    xTaskCreate((TaskFunction_t )list_task,     	
-                (const char*    )"list_task",
+    xTaskCreate((TaskFunction_t )task2_task,     	
+                (const char*    )"task2_task",
                 (uint16_t       )TASK2_STK_SIZE, 
                 (void*          )NULL,				
                 (UBaseType_t    )TASK2_TASK_PRIO,	
@@ -90,33 +88,38 @@ void task1_task(void* pvParameters)
 {
 	while(1)
 	{
-
+		LED1_Toggle();
 	}
 }
 
-//list 任务函数 
-void list_task(void* pvParameters)
+//task2 任务函数 
+void task2_task(void* pvParameters)
 {
-	//初始化列表和列表项
-	vListInitialise(&TestList);
-	vListInitialiseItem(&ListItem1);
-	vListInitialiseItem(&ListItem2);
-	vListInitialiseItem(&ListItem3);
+	u32 TotalRunTime;
+	UBaseType_t ArraySize, x;
+	TaskStatus_t *StatusArray;
 	
-	ListItem1.xItemValue = 40;
-	ListItem2.xItemValue = 60;
-	ListItem3.xItemValue = 50;
+	printf("******** 第一步：函数uxTaskGetSystemState()的使用 ********\r\n");
+	ArraySize = uxTaskGetNumberOfTasks();  //获取系统任务数量
+	StatusArray = pvPortMalloc(ArraySize* sizeof(TaskStatus_t));  //申请内存
 	
-	//打印列表和其他列表项的地址
-	printf("*************** 列表和列表项的地址 ***************\r\n");
-	printf("项目                            地址		\r\n");
-	printf("TestLis                         %#x			\r\n", (int)&TestList);
-	printf("TestList->pxIndex               %#x			\r\n", (int)TestList.pxIndex);
-	printf("TestList->xListEnd              %#x			\r\n", (int)(&TestList.xListEnd));
-	printf("ListItem1                       %#x			\r\n", (int)&ListItem1);
-	printf("ListItem2                       %#x			\r\n", (int)&ListItem2);
-	printf("ListItem3                       %#x			\r\n", (int)&ListItem3);
-	printf("****************** END ************************\r\n");
+	if(StatusArray != NULL)
+	{
+		ArraySize = uxTaskGetSystemState((TaskStatus_t*   )StatusArray,
+		                                 (UBaseType_t     )ArraySize,
+		                                 (uint32_t*       )&TotalRunTime);
+		printf("TaskName\t\tPriority\t\tTaskNumber\t\t\r\n");
+		
+		for(x=0; x<ArraySize; x++)
+		{
+			printf("%s\t\t%d\t\t\t%d\t\t\t\r\n", StatusArray[x].pcTaskName, 
+			                                     (int)StatusArray[x].uxCurrentPriority, 
+																					 (int)StatusArray[x].xTaskNumber);
+		}
+	}
+	vPortFree(StatusArray);
+	printf("***************** end ***************************\r\n");
+	
 	printf("按下KEY3键继续！\r\n\r\n");
 	while(KEY3() == Bit_SET)
 	{
@@ -124,100 +127,68 @@ void list_task(void* pvParameters)
 	}
 	delay_ms(1000);
 	
-	vListInsert(&TestList, &ListItem1);
-	printf("********** 添加列表项ListItem1 **************\r\n");
-	printf("项目                            地址		\r\n");
-	printf("TestList->xListEnd->pxNext      %#x			\r\n", (int)(TestList.xListEnd.pxNext));
-	printf("ListItem1->pxNext               %#x			\r\n", (int)(ListItem1.pxNext));
-	printf("*********************************************\r\n");
-	printf("TestList->xListEnd->pxPrevious  %#x			\r\n", (int)(TestList.xListEnd.pxPrevious));
-	printf("ListItem1->pxPrevious           %#x			\r\n", (int)(ListItem1.pxPrevious));
-	printf("***************** END *******************\r\n");
+	TaskHandle_t TaskHandle;
+	TaskStatus_t TaskStatus;
+	
+	printf("************** 第二步：函数vTaskGetInfo()的使用 *************\r\n");
+	TaskHandle = xTaskGetHandle("task1_task");   //根据任务名获取任务句柄
+	
+	vTaskGetInfo((TaskHandle_t   )TaskHandle,   //任务句柄
+	             (TaskStatus_t*  )&TaskStatus,   //任务信息结构体
+	             (BaseType_t     )pdTRUE,        //允许统计任务堆栈历史最小剩余大小
+	             (eTaskState     )eInvalid);     //函数自己获取任务运行状态   
+	
+	printf("任务名:                   %s\r\n", TaskStatus.pcTaskName);
+	printf("任务编号:                 %d\r\n", (int)TaskStatus.xTaskNumber);
+	printf("任务状态:                 %d\r\n", TaskStatus.eCurrentState);
+	printf("任务当前优先级:           %d\r\n", (int)TaskStatus.uxCurrentPriority);
+	printf("任务基优先级:             %d\r\n", (int)TaskStatus.uxBasePriority);
+	printf("任务堆栈基地址:           %x\r\n", (int)TaskStatus.pxStackBase);
+	printf("任务堆栈历史剩余最小值:   %d\r\n",  TaskStatus.usStackHighWaterMark);
+	printf("********************** end *********************\r\n");
+	
 	printf("按下KEY3键继续！\r\n\r\n");
 	while(KEY3() == Bit_SET)
 	{
 		delay_ms(20);
 	}
 	delay_ms(1000);
+
+  eTaskState TaskState;
+	char TaskInfo[10];
 	
-	vListInsert(&TestList, &ListItem2);
-	printf("********** 添加列表项ListItem2 **************\r\n");
-	printf("项目                            地址		\r\n");
-	printf("TestList->xListEnd->pxNext      %#x			\r\n", (int)(TestList.xListEnd.pxNext));
-	printf("ListItem1->pxNext               %#x			\r\n", (int)(ListItem1.pxNext));
-	printf("ListItem2->pxNext               %#x			\r\n", (int)(ListItem2.pxNext));
-	printf("*********************************************\r\n");
-	printf("TestList->xListEnd->pxPrevious  %#x			\r\n", (int)(TestList.xListEnd.pxPrevious));
-	printf("ListItem1->pxPrevious           %#x			\r\n", (int)(ListItem1.pxPrevious));
-	printf("ListItem2->pxPrevious           %#x			\r\n", (int)(ListItem2.pxPrevious));
-	printf("***************** END *******************\r\n");
+	printf("************* 第三步：函数eTaskGetState ****************\r\n");
+	TaskHandle = xTaskGetHandle("task2_task");
+	TaskState = eTaskGetState(TaskHandle);
+	memset(TaskInfo, 0, sizeof(TaskInfo));
+	
+	switch((int)TaskState)
+	{
+		case 0: sprintf(TaskInfo, "Running"); break;
+		case 1: sprintf(TaskInfo, "Ready");   break;
+		case 2: sprintf(TaskInfo, "Suspend"); break;
+		case 3: sprintf(TaskInfo, "Delete");  break;
+		case 4: sprintf(TaskInfo, "Invalid"); break;
+	}
+	printf("任务状态值：%d，对应的状态为：%s\r\n", TaskState, TaskInfo);
+	printf("******************** end ******************\r\n");
+
 	printf("按下KEY3键继续！\r\n\r\n");
 	while(KEY3() == Bit_SET)
 	{
 		delay_ms(20);
 	}
 	delay_ms(1000);
-	
-	vListInsert(&TestList, &ListItem3);
-	printf("********** 添加列表项ListItem3 **************\r\n");
-	printf("项目                            地址		\r\n");
-	printf("TestList->xListEnd->pxNext      %#x			\r\n", (int)(TestList.xListEnd.pxNext));
-	printf("ListItem1->pxNext               %#x			\r\n", (int)(ListItem1.pxNext));
-	printf("ListItem2->pxNext               %#x			\r\n", (int)(ListItem2.pxNext));
-	printf("ListItem3->pxNext               %#x			\r\n", (int)(ListItem3.pxNext));
-	printf("*********************************************\r\n");
-	printf("TestList->xListEnd->pxPrevious  %#x			\r\n", (int)(TestList.xListEnd.pxPrevious));
-	printf("ListItem1->pxPrevious           %#x			\r\n", (int)(ListItem1.pxPrevious));
-	printf("ListItem3->pxPrevious           %#x			\r\n", (int)(ListItem3.pxPrevious));
-	printf("ListItem2->pxPrevious           %#x			\r\n", (int)(ListItem2.pxPrevious));
-	printf("***************** END *******************\r\n");
-	printf("按下KEY3键继续！\r\n\r\n");
-	while(KEY3() == Bit_SET)
-	{
-		delay_ms(20);
-	}
-	delay_ms(1000);
-	
-	uxListRemove(&ListItem2);
-	printf("************** 删除列表项ListItem2 *************\r\n");
-	printf("项目                            地址		\r\n");
-	printf("TestList->xListEnd->pxNext      %#x			\r\n", (int)(TestList.xListEnd.pxNext));
-	printf("ListItem1->pxNext               %#x			\r\n", (int)(ListItem1.pxNext));
-	printf("ListItem3->pxNext               %#x			\r\n", (int)(ListItem3.pxNext));
-	printf("*********************************************\r\n");
-	printf("TestList->xListEnd->pxPrevious  %#x			\r\n", (int)(TestList.xListEnd.pxPrevious));
-	printf("ListItem1->pxPrevious           %#x			\r\n", (int)(ListItem1.pxPrevious));
-	printf("ListItem3->pxPrevious           %#x			\r\n", (int)(ListItem3.pxPrevious));
-	printf("***************** END *******************\r\n");
-	printf("按下KEY3键继续！\r\n\r\n");
-	while(KEY3() == Bit_SET)
-	{
-		delay_ms(20);
-	}
-	delay_ms(1000);
-	
-	TestList.pxIndex = TestList.pxIndex->pxNext;
-	vListInsertEnd(&TestList, &ListItem2);
-	printf("********** 在末尾添加列表项ListItem2 *********\r\n");
-	printf("项目                            地址		\r\n");
-	printf("TestList->pxIndex               %#x			\r\n", (int)(TestList.pxIndex));
-	printf("TestList->xListEnd->pxNext      %#x			\r\n", (int)(TestList.xListEnd.pxNext));
-	printf("ListItem2->pxNext               %#x			\r\n", (int)(ListItem2.pxNext));
-	printf("ListItem1->pxNext               %#x			\r\n", (int)(ListItem1.pxNext));
-	printf("ListItem3->pxNext               %#x			\r\n", (int)(ListItem3.pxNext));
-	printf("*********************************************\r\n");
-	printf("TestList->xListEnd->pxPrevious  %#x			\r\n", (int)(TestList.xListEnd.pxPrevious));
-	printf("ListItem2->pxPrevious           %#x			\r\n", (int)(ListItem2.pxPrevious));
-	printf("ListItem1->pxPrevious           %#x			\r\n", (int)(ListItem1.pxPrevious));
-	printf("ListItem3->pxPrevious           %#x			\r\n", (int)(ListItem3.pxPrevious));
-	printf("***************** END *******************\r\n");
-	
+  
+  printf("******************** 第四步：函数vTaskList()的使用 *****************\r\n");
+
+	vTaskList(InfoBuffer);  //获取所有任务的信息
+	printf("%s\r\n", InfoBuffer);
 	
 	while(1)
 	{
-		LED_Toggle();
+		LED2_Toggle();
 	}
-	
 }
 
 

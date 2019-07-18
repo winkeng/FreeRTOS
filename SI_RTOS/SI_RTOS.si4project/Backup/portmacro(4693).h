@@ -82,7 +82,7 @@ typedef unsigned long UBaseType_t;
 /* Scheduler utilities. */
 #define portYIELD()																\
 {																				\
-	/* bit28置1，悬起PendSV       Set a PendSV to request a context switch. */								\
+	/* Set a PendSV to request a context switch. */								\
 	portNVIC_INT_CTRL_REG = portNVIC_PENDSVSET_BIT;								\
 																				\
 	/* Barriers are normally not required but do ensure the code is completely	\
@@ -94,7 +94,7 @@ typedef unsigned long UBaseType_t;
 
 #define portNVIC_INT_CTRL_REG		( * ( ( volatile uint32_t * ) 0xe000ed04 ) )
 #define portNVIC_PENDSVSET_BIT		( 1UL << 28UL )
-#define portEND_SWITCHING_ISR( xSwitchRequired ) if( xSwitchRequired != pdFALSE ) portYIELD() /* 中断级的任务切换 */
+#define portEND_SWITCHING_ISR( xSwitchRequired ) if( xSwitchRequired != pdFALSE ) portYIELD()
 #define portYIELD_FROM_ISR( x ) portEND_SWITCHING_ISR( x )
 /*-----------------------------------------------------------*/
 

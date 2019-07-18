@@ -176,20 +176,18 @@ StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t px
 {
 	/* Simulate the stack frame as it would be created by a context switch
 	interrupt. */
-	/* 异常发生时，自动加载到CPU寄存器的内容 */
 	pxTopOfStack--; /* Offset added to account for the way the MCU uses the stack on entry/exit of interrupts. */
-	*pxTopOfStack = portINITIAL_XPSR;	/* xPSR (xPSR的bit24必须置1，即0x01000000，表示处于Thumb状态)*/
+	*pxTopOfStack = portINITIAL_XPSR;	/* xPSR */
 	pxTopOfStack--;
-	*pxTopOfStack = ( ( StackType_t ) pxCode ) & portSTART_ADDRESS_MASK;	/* PC(程序计数器) -- 任务的入口地址 */
+	*pxTopOfStack = ( ( StackType_t ) pxCode ) & portSTART_ADDRESS_MASK;	/* PC */
 	pxTopOfStack--;
-	*pxTopOfStack = ( StackType_t ) prvTaskExitError;	/* LR(连接寄存器) -- 任务的返回地址，通常任务是不会返回的 */
+	*pxTopOfStack = ( StackType_t ) prvTaskExitError;	/* LR */
 
-	pxTopOfStack -= 5;	/* R12, R3, R2 and R1. -- 默认初始化为0 */
-	*pxTopOfStack = ( StackType_t ) pvParameters;	/* R0 (一般情况下，函数调用会将R0-R3作为输入参数) */
-	/* 异常发生时，手动加载到CPU寄存器的内容 */
+	pxTopOfStack -= 5;	/* R12, R3, R2 and R1. */
+	*pxTopOfStack = ( StackType_t ) pvParameters;	/* R0 */
 	pxTopOfStack -= 8;	/* R11, R10, R9, R8, R7, R6, R5 and R4. */
 
-	return pxTopOfStack; /* 返回栈顶指针 */
+	return pxTopOfStack;
 }
 /*-----------------------------------------------------------*/
 
@@ -215,13 +213,13 @@ __asm void vPortSVCHandler( void )
 	ldr r1, [r3]			/* Use pxCurrentTCBConst to get the pxCurrentTCB address. */
 	ldr r0, [r1]			/* The first item in pxCurrentTCB is the task top of stack. */
 	/* 上面三行代码为了获取要切换到当前任务的任务栈顶指针 -@vincent */
-	ldmia r0!, {r4-r11}		/* 出栈，R4-R11 Pop the registers that are not automatically saved on exception entry and the critical nesting count. */
-	msr psp, r0				/* 进程栈指针(PSP)设置为任务的堆栈 Restore the task stack pointer. */
+	ldmia r0!, {r4-r11}		/* Pop the registers that are not automatically saved on exception entry and the critical nesting count. */
+	msr psp, r0				/* Restore the task stack pointer. */
 	isb
 	mov r0, #0
-	msr	basepri, r0 /* 打开中断 */
-	orr r14, #0xd	/* 退出异常，进入线程模式且使用PSP 	EXC_RETURN值 P139 (orr -- 按位或运算) */
-	bx r14          /* 异常返回，硬件自动恢复寄存器R0-R3、R12、LR、PC、xPSR，任务调度器开始运行 */
+	msr	basepri, r0
+	orr r14, #0xd	/* 退出异常，进入线程模式且使用PSP 	EXC_RETURN值 P139	@vincent */
+	bx r14
 }
 /*-----------------------------------------------------------*/
 
@@ -230,16 +228,14 @@ __asm void prvStartFirstTask( void )
 	PRESERVE8
 
 	/* Use the NVIC offset register to locate the stack. */
-	/* 在Cortex-M中，0xE000ED08是SCB_VTOR这个寄存器的地址，
-	   里面存放的是向量表的起始地址，即MSP的地址 */
 	ldr r0, =0xE000ED08
 	ldr r0, [r0]
 	ldr r0, [r0]
-	/* 上面三行代码为了获取MSP的初始值     */
+	/* 上面三行代码为了获取MSP的初始值 -@vincent */
 	
 	/* Set the msp back to the start of the stack. */
 	msr msp, r0
-	/* 使能全局中断 Globally enable interrupts. */
+	/* Globally enable interrupts. */
 	cpsie i
 	cpsie f
 	dsb
@@ -323,17 +319,17 @@ BaseType_t xPortStartScheduler( void )
 	#endif /* conifgASSERT_DEFINED */
 
 	/* Make PendSV and SysTick the lowest priority interrupts. */
-	portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;	//设置PendSV中断优先级(优先级最低)
-	portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;	//设置SysTick中断优先级(优先级最低)
+	portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;	//设置PendSV中断优先级
+	portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;	//设置SysTick中断优先级
 
 	/* Start the timer that generates the tick ISR.  Interrupts are disabled
 	here already. */
-	vPortSetupTimerInterrupt(); //开启定时器，并使能滴答定时器的中断，为系统提供一个系统节拍
+	vPortSetupTimerInterrupt(); //开启定时器，为系统提供一个系统节拍
 
 	/* Initialise the critical nesting count ready for the first task. */
 	uxCriticalNesting = 0;
 	
-	/* 开启第一个任务 Start the first task. */
+	/* Start the first task. */
 	prvStartFirstTask();
 	
 	/* Should not get here! */
@@ -385,22 +381,16 @@ __asm void xPortPendSVHandler( void )
 
 	PRESERVE8
 
-	/* 当进入xPortPendSVHandler()函数时，上一个任务运行的环境即：
-	   xPSR、R15(PC:任务入口地址)、R14、R12、R3、R2、R1、R0(任务的形参)，
-	   这些CPU寄存器的值会自动存储到任务的栈中，剩下的R11-R4需要手动保存
-       同时PSP会自动更新(在更新之前PSP指向任务栈的栈顶)	*/
-	mrs r0, psp                 /* 获取进程栈指针 */    
+	mrs r0, psp
 	isb
-	
+
 	ldr	r3, =pxCurrentTCB		/* Get the location of the current TCB. */
-	ldr	r2, [r3]                /* 获取栈顶指针 */
+	ldr	r2, [r3]
 
-	stmdb r0!, {r4-r11}			/* 进栈操作 -- 保存R4-R11寄存器的值，同时更新R0的值 Save the remaining registers. 相当于push操作 */
-	str r0, [r2]				/* (*r2) = r0   Save the new top of stack into the first member of the TCB. */
-	/* 上面一行：将R0的值存储到上一个任务的栈顶指针pxTopOfStack
-	   到此，上下文切换中的上文保存就完成了 */
+	stmdb r0!, {r4-r11}			/* Save the remaining registers. 相当于push操作 */
+	str r0, [r2]				/* Save the new top of stack into the first member of the TCB. */
 
-	stmdb sp!, {r3, r14}        /* 将寄存器R3,R14临时压栈 */
+	stmdb sp!, {r3, r14}
 	mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY
 	msr basepri, r0
 	dsb
@@ -408,15 +398,14 @@ __asm void xPortPendSVHandler( void )
 	bl vTaskSwitchContext		/* 获取下一个要运行的任务，并将pxCurrentTCB更新为这个要运行的任务 */
 	mov r0, #0
 	msr basepri, r0
-	ldmia sp!, {r3, r14}        /* 出栈操作 -- 刚刚保存的寄存器R3,R14的值出栈，注意，执行函数         vTaskSwitchContext      ()后，
-	                               pxCurrentTCB的值已经发送变化 */
+	ldmia sp!, {r3, r14}
 
 	ldr r1, [r3]
-	ldr r0, [r1]				/* 获取新的要运行的任务的任务堆栈指针 The first item in pxCurrentTCB is the task top of stack. */
-	ldmia r0!, {r4-r11}			/* R4-R11出栈，也就是即将运行任务的现场 Pop the registers and the critical nesting count. */
-	msr psp, r0                 /* 更新进程堆栈指针PSP的值 */ 
+	ldr r0, [r1]				/* The first item in pxCurrentTCB is the task top of stack. */
+	ldmia r0!, {r4-r11}			/* Pop the registers and the critical nesting count. */
+	msr psp, r0
 	isb
-	bx r14                      /* 异常返回，硬件自动恢复寄存器R0-R3、R12、LR、PC、xPSR，新的任务开始运行，任务切换成功 */
+	bx r14
 	nop
 }
 /*-----------------------------------------------------------*/
