@@ -11,5 +11,7 @@
 
 
 void KEY_Init(void);//IO≥ı ºªØ
-    
+uint8_t key_scan(void);
+
+
 #endif

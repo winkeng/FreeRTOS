@@ -20,3 +20,18 @@ void KEY_Init(void) //IO≥ı ºªØ
  	GPIO_Init(GPIOC, &GPIO_InitStructure);
 }
 
+uint8_t key_scan(void)
+{
+	if(KEY3() == Bit_RESET)
+	{
+		return 0x03;
+	}
+	else if(KEY2() == Bit_RESET)
+	{
+		return 0x02;
+	}
+	else
+	{
+		return 0x00;
+	}
+}

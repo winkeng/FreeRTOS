@@ -456,9 +456,9 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength, const UBaseT
 
 	/* Initialise the queue members as described where the queue type is
 	defined. */
-	pxNewQueue->uxLength = uxQueueLength; //队列的最大队列项目
-	pxNewQueue->uxItemSize = uxItemSize;  //每个队列项大小
-	( void ) xQueueGenericReset( pxNewQueue, pdTRUE ); //复位队列
+	pxNewQueue->uxLength = uxQueueLength;
+	pxNewQueue->uxItemSize = uxItemSize;
+	( void ) xQueueGenericReset( pxNewQueue, pdTRUE );
 
 	#if ( configUSE_TRACE_FACILITY == 1 ) //跟踪调试相关字段初始化
 	{
@@ -897,7 +897,7 @@ Queue_t * const pxQueue = xQueue;
 					/* Return to the original privilege level before exiting
 					the function. */
 					traceQUEUE_SEND_FAILED( pxQueue );
-					return errQUEUE_FULL; //标记队列已满
+					return errQUEUE_FULL;
 				}
 				else if( xEntryTimeSet == pdFALSE )
 				{
@@ -918,13 +918,12 @@ Queue_t * const pxQueue = xQueue;
 		/* Interrupts and other tasks can send to and receive from the queue
 		now the critical section has been exited. */
 
-		vTaskSuspendAll(); //任务调度器上锁，执行到这里说明队列已满
-		prvLockQueue( pxQueue ); //给队列上锁
+		vTaskSuspendAll();
+		prvLockQueue( pxQueue );
 
-		/* 更新时间状态，检查是否有超时产生 Update the timeout state to see if it has expired yet. */
+		/* Update the timeout state to see if it has expired yet. */
 		if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
 		{
-			/* 检查队列是否还是满的 */
 			if( prvIsQueueFull( pxQueue ) != pdFALSE )
 			{
 				traceBLOCKING_ON_QUEUE_SEND( pxQueue );
@@ -1283,7 +1282,6 @@ Queue_t * const pxQueue = xQueue;
 }
 /*-----------------------------------------------------------*/
 
-/* @func 从队列中读取队列项(消息)，并且读取完以后删除掉队列项(消息) */
 BaseType_t xQueueReceive( QueueHandle_t xQueue, void * const pvBuffer, TickType_t xTicksToWait )
 {
 BaseType_t xEntryTimeSet = pdFALSE;
@@ -1643,7 +1641,6 @@ Queue_t * const pxQueue = xQueue;
 }
 /*-----------------------------------------------------------*/
 
-/* @func 从队列中读取队列项(消息)，并且读取完以后不删除队列项(消息) */
 BaseType_t xQueuePeek( QueueHandle_t xQueue, void * const pvBuffer, TickType_t xTicksToWait )
 {
 BaseType_t xEntryTimeSet = pdFALSE;

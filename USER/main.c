@@ -26,14 +26,16 @@ void start_task(void *pvParameters);  	//任务函数
 TaskHandle_t Task1Task_Handler;		   //任务句柄
 void task1_task(void *pvParameters);   //任务函数
 
-#define TASK2_TASK_PRIO		    3      //任务优先级
-#define TASK2_STK_SIZE		    128    //任务堆栈大小
-TaskHandle_t Task2Task_Handler;		   //任务句柄
-void task2_task(void *pvParameters);   //任务函数
+#define KEYPROCESS_TASK_PRIO	3      //任务优先级
+#define KEYPROCESS_STK_SIZE		128    //任务堆栈大小
+TaskHandle_t KeyProcess_Handler;		   //任务句柄
+void KeyProcess_task(void *pvParameters);   //任务函数
 
 
-//保存信息的数组
-char InfoBuffer[1000];
+//按键消息队列的数量
+#define KEYMSG_Q_NUM	1		//按键消息队列的数量
+#define MESSAGE_Q_NUM	4		//发送数据的消息队列的数量
+QueueHandle_t Key_Queue;	//按键值消息队列句柄
 
 
 /****
@@ -64,6 +66,10 @@ int main(void)
 void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
+	
+		//创建消息队列
+		Key_Queue = xQueueCreate(KEYMSG_Q_NUM, sizeof(uint8_t));
+	
     //创建TASK1任务
     xTaskCreate((TaskFunction_t )task1_task,     	
                 (const char*    )"task1_task",
@@ -72,12 +78,12 @@ void start_task(void *pvParameters)
                 (UBaseType_t    )TASK1_TASK_PRIO,	
                 (TaskHandle_t*  )&Task1Task_Handler);    
     //创建TASK1任务
-    xTaskCreate((TaskFunction_t )task2_task,     	
-                (const char*    )"task2_task",
-                (uint16_t       )TASK2_STK_SIZE, 
+    xTaskCreate((TaskFunction_t )KeyProcess_task,     	
+                (const char*    )"KeyProcess_task",
+                (uint16_t       )KEYPROCESS_STK_SIZE, 
                 (void*          )NULL,				
-                (UBaseType_t    )TASK2_TASK_PRIO,	
-                (TaskHandle_t*  )&Task2Task_Handler);    
+                (UBaseType_t    )KEYPROCESS_TASK_PRIO,	
+                (TaskHandle_t*  )&KeyProcess_Handler);    
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
@@ -86,108 +92,54 @@ void start_task(void *pvParameters)
 //task1 任务函数 
 void task1_task(void* pvParameters)
 {
+	u8 key;
+	BaseType_t err;
+	
 	while(1)
 	{
-		LED1_Toggle();
+		key = key_scan();
+		
+		if((Key_Queue != NULL) && (key))
+		{
+			err = xQueueSend(Key_Queue, &key, 10);
+			
+			if(err == errQUEUE_FULL)
+			{
+				printf("队列Key_Queue已满，数据发送失败\r\n");
+			}
+			else
+			{
+				printf("队列Key_Queue数据发送成功\r\n");
+			}
+			vTaskDelay(1000);
+		}
+		
+		vTaskDelay(10);
 	}
+	
 }
 
-//task2 任务函数 
-void task2_task(void* pvParameters)
+//KeyProcess_task 任务函数 
+void KeyProcess_task(void* pvParameters)
 {
-	u32 TotalRunTime;
-	UBaseType_t ArraySize, x;
-	TaskStatus_t *StatusArray;
-	
-	printf("******** 第一步：函数uxTaskGetSystemState()的使用 ********\r\n");
-	ArraySize = uxTaskGetNumberOfTasks();  //获取系统任务数量
-	StatusArray = pvPortMalloc(ArraySize* sizeof(TaskStatus_t));  //申请内存
-	
-	if(StatusArray != NULL)
-	{
-		ArraySize = uxTaskGetSystemState((TaskStatus_t*   )StatusArray,
-		                                 (UBaseType_t     )ArraySize,
-		                                 (uint32_t*       )&TotalRunTime);
-		printf("TaskName\t\tPriority\t\tTaskNumber\t\t\r\n");
-		
-		for(x=0; x<ArraySize; x++)
-		{
-			printf("%s\t\t%d\t\t\t%d\t\t\t\r\n", StatusArray[x].pcTaskName, 
-			                                     (int)StatusArray[x].uxCurrentPriority, 
-																					 (int)StatusArray[x].xTaskNumber);
-		}
-	}
-	vPortFree(StatusArray);
-	printf("***************** end ***************************\r\n");
-	
-	printf("按下KEY3键继续！\r\n\r\n");
-	while(KEY3() == Bit_SET)
-	{
-		delay_ms(20);
-	}
-	delay_ms(1000);
-	
-	TaskHandle_t TaskHandle;
-	TaskStatus_t TaskStatus;
-	
-	printf("************** 第二步：函数vTaskGetInfo()的使用 *************\r\n");
-	TaskHandle = xTaskGetHandle("task1_task");   //根据任务名获取任务句柄
-	
-	vTaskGetInfo((TaskHandle_t   )TaskHandle,   //任务句柄
-	             (TaskStatus_t*  )&TaskStatus,   //任务信息结构体
-	             (BaseType_t     )pdTRUE,        //允许统计任务堆栈历史最小剩余大小
-	             (eTaskState     )eInvalid);     //函数自己获取任务运行状态   
-	
-	printf("任务名:                   %s\r\n", TaskStatus.pcTaskName);
-	printf("任务编号:                 %d\r\n", (int)TaskStatus.xTaskNumber);
-	printf("任务状态:                 %d\r\n", TaskStatus.eCurrentState);
-	printf("任务当前优先级:           %d\r\n", (int)TaskStatus.uxCurrentPriority);
-	printf("任务基优先级:             %d\r\n", (int)TaskStatus.uxBasePriority);
-	printf("任务堆栈基地址:           %x\r\n", (int)TaskStatus.pxStackBase);
-	printf("任务堆栈历史剩余最小值:   %d\r\n",  TaskStatus.usStackHighWaterMark);
-	printf("********************** end *********************\r\n");
-	
-	printf("按下KEY3键继续！\r\n\r\n");
-	while(KEY3() == Bit_SET)
-	{
-		delay_ms(20);
-	}
-	delay_ms(1000);
-
-  eTaskState TaskState;
-	char TaskInfo[10];
-	
-	printf("************* 第三步：函数eTaskGetState ****************\r\n");
-	TaskHandle = xTaskGetHandle("task2_task");
-	TaskState = eTaskGetState(TaskHandle);
-	memset(TaskInfo, 0, sizeof(TaskInfo));
-	
-	switch((int)TaskState)
-	{
-		case 0: sprintf(TaskInfo, "Running"); break;
-		case 1: sprintf(TaskInfo, "Ready");   break;
-		case 2: sprintf(TaskInfo, "Suspend"); break;
-		case 3: sprintf(TaskInfo, "Delete");  break;
-		case 4: sprintf(TaskInfo, "Invalid"); break;
-	}
-	printf("任务状态值：%d，对应的状态为：%s\r\n", TaskState, TaskInfo);
-	printf("******************** end ******************\r\n");
-
-	printf("按下KEY3键继续！\r\n\r\n");
-	while(KEY3() == Bit_SET)
-	{
-		delay_ms(20);
-	}
-	delay_ms(1000);
-  
-  printf("******************** 第四步：函数vTaskList()的使用 *****************\r\n");
-
-	vTaskList(InfoBuffer);  //获取所有任务的信息
-	printf("%s\r\n", InfoBuffer);
+	u8 key;
 	
 	while(1)
 	{
-		LED2_Toggle();
+		if(Key_Queue != NULL)
+		{
+			if(xQueueReceive(Key_Queue, &key, portMAX_DELAY))
+			{
+				switch(key)
+				{
+					case 0x02: printf("key 2\r\n"); break;
+					
+					case 0x03: printf("key 3\r\n"); break;
+				}
+			}
+		}
+		
+		vTaskDelay(10);
 	}
 }
 

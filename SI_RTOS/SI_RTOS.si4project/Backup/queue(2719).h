@@ -310,7 +310,6 @@ typedef struct QueueDefinition * QueueSetMemberHandle_t;
  * \defgroup xQueueSend xQueueSend
  * \ingroup QueueManagement
  */
- /* 发送消息到队列头(前向入队) */ 
 #define xQueueSendToFront( xQueue, pvItemToQueue, xTicksToWait ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), ( xTicksToWait ), queueSEND_TO_FRONT )
 
 /**
@@ -393,7 +392,6 @@ typedef struct QueueDefinition * QueueSetMemberHandle_t;
  * \defgroup xQueueSend xQueueSend
  * \ingroup QueueManagement
  */
- /* 发送消息到队列尾部(后向入队) */
 #define xQueueSendToBack( xQueue, pvItemToQueue, xTicksToWait ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), ( xTicksToWait ), queueSEND_TO_BACK )
 
 /**
@@ -478,7 +476,6 @@ typedef struct QueueDefinition * QueueSetMemberHandle_t;
  * \defgroup xQueueSend xQueueSend
  * \ingroup QueueManagement
  */
- /* 发送消息到队列尾部(后向入队) */
 #define xQueueSend( xQueue, pvItemToQueue, xTicksToWait ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), ( xTicksToWait ), queueSEND_TO_BACK )
 
 /**
@@ -562,7 +559,6 @@ typedef struct QueueDefinition * QueueSetMemberHandle_t;
  * \defgroup xQueueOverwrite xQueueOverwrite
  * \ingroup QueueManagement
  */
-/* 发送消息到队列，带覆写功能，当队列满了以后自动覆盖掉旧的消息 */ 
 #define xQueueOverwrite( xQueue, pvItemToQueue ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), 0, queueOVERWRITE )
 
 
@@ -985,7 +981,6 @@ void vQueueDelete( QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
  * \defgroup xQueueSendFromISR xQueueSendFromISR
  * \ingroup QueueManagement
  */
-/* 发送消息到队列头(前向入队)，用于中断服务函数 */ 
 #define xQueueSendToFrontFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken ) xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), ( pxHigherPriorityTaskWoken ), queueSEND_TO_FRONT )
 
 
@@ -1057,7 +1052,6 @@ void vQueueDelete( QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
  * \defgroup xQueueSendFromISR xQueueSendFromISR
  * \ingroup QueueManagement
  */
-/* 发送消息到队列尾(后向入队)，用于中断服务函数 */  
 #define xQueueSendToBackFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken ) xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), ( pxHigherPriorityTaskWoken ), queueSEND_TO_BACK )
 
 /**
@@ -1145,7 +1139,6 @@ uint32_t ulVarToSend, ulValReceived;
  * \defgroup xQueueOverwriteFromISR xQueueOverwriteFromISR
  * \ingroup QueueManagement
  */
-/* 发送消息到队列，带覆写功能，当队列满了以后自动覆盖掉旧的消息，用于中断服务函数 */ 
 #define xQueueOverwriteFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken ) xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), ( pxHigherPriorityTaskWoken ), queueOVERWRITE )
 
 /**
@@ -1220,7 +1213,6 @@ uint32_t ulVarToSend, ulValReceived;
  * \defgroup xQueueSendFromISR xQueueSendFromISR
  * \ingroup QueueManagement
  */
-/* 发送消息到队列尾(后向入队)，用于中断服务函数 */   
 #define xQueueSendFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken ) xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), ( pxHigherPriorityTaskWoken ), queueSEND_TO_BACK )
 
 /**
