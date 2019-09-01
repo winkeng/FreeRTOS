@@ -364,7 +364,6 @@ Queue_t * const pxQueue = xQueue;
 #endif /* configSUPPORT_STATIC_ALLOCATION */
 /*-----------------------------------------------------------*/
 
-/* 函数 xQueueGenericCreate()重要的工作就是给队列分配内存 */
 #if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
 
 	QueueHandle_t xQueueGenericCreate( const UBaseType_t uxQueueLength, const UBaseType_t uxItemSize, const uint8_t ucQueueType )
@@ -446,7 +445,6 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength, const UBaseT
 		be set to NULL because NULL is used as a key to say the queue is used as
 		a mutex.  Therefore just set pcHead to point to the queue as a benign
 		value that is known to be within the memory map. */
-		/* 队列项长度为0，说明没有队列存储区，将pcHead指向队列开始地址 */
 		pxNewQueue->pcHead = ( int8_t * ) pxNewQueue;
 	}
 	else
@@ -468,7 +466,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength, const UBaseT
 	}
 	#endif /* configUSE_TRACE_FACILITY */
 
-	#if( configUSE_QUEUE_SETS == 1 )	 //队列集相关字段初始化
+	#if( configUSE_QUEUE_SETS == 1 )	//队列集相关字段初始化
 	{
 		pxNewQueue->pxQueueSetContainer = NULL;
 	}

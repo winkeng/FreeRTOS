@@ -151,29 +151,22 @@
           <Name>(105=-1,-1,-1,-1,0)</Name>
         </SetRegEntry>
       </TargetDriverDllRegistry>
-      <Breakpoint>
-        <Bp>
-          <Number>0</Number>
-          <Type>0</Type>
-          <LineNumber>392</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134218276</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\FreeRTOS\portable\RVDS\ARM_CM3\port.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\FreeRTOS\../FreeRTOS/portable/RVDS/ARM_CM3/port.c\392</Expression>
-        </Bp>
-      </Breakpoint>
+      <Breakpoint/>
       <WatchWindow1>
         <Ww>
           <count>0</count>
           <WinNumber>1</WinNumber>
           <ItemText>flag2</ItemText>
+        </Ww>
+        <Ww>
+          <count>1</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Res</ItemText>
+        </Ww>
+        <Ww>
+          <count>2</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>USART_RX_BUF</ItemText>
         </Ww>
       </WatchWindow1>
       <MemoryWindow1>
