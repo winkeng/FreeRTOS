@@ -38,7 +38,7 @@ void high_task(void *pvParameters);   //任务函数
 
 
 //二值信号量句柄
-SemaphoreHandle_t BinarySemaphore;	//二值信号量
+SemaphoreHandle_t MutexSemaphore;	//二值信号量
 
 
 
@@ -74,10 +74,8 @@ void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
 	
-		//创建二值信号量
-		BinarySemaphore=xSemaphoreCreateBinary();
-		//二值信号量创建成功以后要先释放一下
-		if(BinarySemaphore!=NULL)xSemaphoreGive(BinarySemaphore);	
+		//创建互斥信号量
+		MutexSemaphore=xSemaphoreCreateMutex();
 	
     //创建TASK1任务
     xTaskCreate((TaskFunction_t )high_task,     	
@@ -112,9 +110,9 @@ void high_task(void *pvParameters)
 	{	
 		vTaskDelay(500); 
 		printf("high task Pend Sem\r\n");
-		xSemaphoreTake(BinarySemaphore,portMAX_DELAY);	//获取二值信号量
+		xSemaphoreTake(MutexSemaphore,portMAX_DELAY);	//获取互斥信号量
 		printf("high task Running!\r\n");
-		xSemaphoreGive(BinarySemaphore);				//释放信号量
+		xSemaphoreGive(MutexSemaphore);				//释放信号量
 		vTaskDelay(500); 
 	}
 }
@@ -136,13 +134,13 @@ void low_task(void *pvParameters)
 
 	while(1)
 	{
-		xSemaphoreTake(BinarySemaphore,portMAX_DELAY);	//获取二值信号量
+		xSemaphoreTake(MutexSemaphore,portMAX_DELAY);	//获取互斥信号量
 		printf("low task Running!\r\n");
 		for(times=0;times<5000000;times++)				//模拟低优先级任务占用二值信号量
 		{
 			taskYIELD();								//发起任务调度
 		}
-		xSemaphoreGive(BinarySemaphore);				//释放二值信号量
+		xSemaphoreGive(MutexSemaphore);				//释放互斥信号量
 		vTaskDelay(1000);	//延时1s，也就是1000个时钟节拍	
 	}
 }
