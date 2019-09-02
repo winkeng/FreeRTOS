@@ -21,18 +21,24 @@
 TaskHandle_t StartTask_Handler;    		//任务句柄
 void start_task(void *pvParameters);  	//任务函数
 
-#define SEMAPGIVE_TASK_PRIO		    2      //任务优先级
-#define SEMAPGIVE_STK_SIZE		    128    //任务堆栈大小
-TaskHandle_t SemapGiveTask_Handler;		   //任务句柄
-void SemapGive_task(void *pvParameters);   //任务函数
+#define LOW_TASK_PRIO		    2      //任务优先级
+#define LOW_STK_SIZE		    128    //任务堆栈大小
+TaskHandle_t LowTask_Handler;		   //任务句柄
+void low_task(void *pvParameters);   //任务函数
 
-#define SEMAPTAKE_TASK_PRIO	3      //任务优先级
-#define SEMAPTAKE_STK_SIZE		128    //任务堆栈大小
-TaskHandle_t SemapTakeTask_Handler;		   //任务句柄
-void SemapTake_task(void *pvParameters);   //任务函数
+#define MIDDLE_TASK_PRIO	3      //任务优先级
+#define MIDDLE_STK_SIZE		128    //任务堆栈大小
+TaskHandle_t MiddleTask_Handler;		   //任务句柄
+void middle_task(void *pvParameters);   //任务函数
+
+#define HIGH_TASK_PRIO	4      //任务优先级
+#define HIGH_STK_SIZE		128    //任务堆栈大小
+TaskHandle_t HighTask_Handler;		   //任务句柄
+void high_task(void *pvParameters);   //任务函数
 
 
-SemaphoreHandle_t CountSemaphore;//计数型信号量
+//二值信号量句柄
+SemaphoreHandle_t BinarySemaphore;	//二值信号量
 
 
 
@@ -68,68 +74,76 @@ void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
 	
-		//创建计数型信号量
-		CountSemaphore=xSemaphoreCreateCounting(255, 0);		
+		//创建二值信号量
+		BinarySemaphore=xSemaphoreCreateBinary();
+		//二值信号量创建成功以后要先释放一下
+		if(BinarySemaphore!=NULL)xSemaphoreGive(BinarySemaphore);	
 	
     //创建TASK1任务
-    xTaskCreate((TaskFunction_t )SemapGive_task,     	
-                (const char*    )"SemapGive_task",
-                (uint16_t       )SEMAPGIVE_STK_SIZE, 
+    xTaskCreate((TaskFunction_t )high_task,     	
+                (const char*    )"high_task",
+                (uint16_t       )HIGH_STK_SIZE, 
                 (void*          )NULL,				
-                (UBaseType_t    )SEMAPGIVE_TASK_PRIO,	
-                (TaskHandle_t*  )&SemapGiveTask_Handler);    
+                (UBaseType_t    )HIGH_TASK_PRIO,	
+                (TaskHandle_t*  )&HighTask_Handler);    
     //创建TASK1任务
-    xTaskCreate((TaskFunction_t )SemapTake_task,     	
-                (const char*    )"SemapTake_task",
-                (uint16_t       )SEMAPTAKE_STK_SIZE, 
+    xTaskCreate((TaskFunction_t )middle_task,     	
+                (const char*    )"middle_task",
+                (uint16_t       )MIDDLE_STK_SIZE, 
                 (void*          )NULL,				
-                (UBaseType_t    )SEMAPTAKE_TASK_PRIO,	
-                (TaskHandle_t*  )&SemapTakeTask_Handler);    
+                (UBaseType_t    )MIDDLE_TASK_PRIO,	
+                (TaskHandle_t*  )&MiddleTask_Handler);    
+    //创建TASK1任务
+    xTaskCreate((TaskFunction_t )low_task,     	
+                (const char*    )"low_task",
+                (uint16_t       )LOW_STK_SIZE, 
+                (void*          )NULL,				
+                (UBaseType_t    )LOW_TASK_PRIO,	
+                (TaskHandle_t*  )&LowTask_Handler);    
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
 
 
-//释放计数型信号量任务函数
-void SemapGive_task(void* pvParameters)
-{
-	uint8_t key;
-	BaseType_t err;
-	
+//高优先级任务的任务函数
+void high_task(void *pvParameters)
+{	
 	while(1)
-	{
-		key = key_scan();
-		
-		if(CountSemaphore != NULL)
-		{
-			if(key == 0x02)
-			{
-				err = xSemaphoreGive(CountSemaphore);//释放计数型信号量
-				if(err == pdFALSE)
-				{
-					printf("信号量释放失败!!!\r\n");
-				}				
-			}
-			
-			vTaskDelay(200); 
-		}
+	{	
+		vTaskDelay(500); 
+		printf("high task Pend Sem\r\n");
+		xSemaphoreTake(BinarySemaphore,portMAX_DELAY);	//获取二值信号量
+		printf("high task Running!\r\n");
+		xSemaphoreGive(BinarySemaphore);				//释放信号量
+		vTaskDelay(500); 
 	}
-	
 }
 
-//获取计数型信号量任务函数
-void SemapTake_task(void* pvParameters)
+//中等优先级任务的任务函数
+void middle_task(void *pvParameters)
 {
-	uint8_t num;
-	uint8_t semavalue;
+	while(1)
+	{
+		printf("middle task Running!\r\n");
+		vTaskDelay(1000);                               //延时1s，也就是1000个时钟节拍	
+	}
+}
+
+//低优先级任务的任务函数
+void low_task(void *pvParameters)
+{
+	static u32 times;
 
 	while(1)
 	{
-		xSemaphoreTake(CountSemaphore,portMAX_DELAY); 	//等待数值信号量
-		num++;
-		semavalue=uxSemaphoreGetCount(CountSemaphore); 	//获取数值信号量值		
-		printf("semavalue=%d\r\n", semavalue);
-		vTaskDelay(1000);                               //延时1s，也就是1000个时钟节拍	
+		xSemaphoreTake(BinarySemaphore,portMAX_DELAY);	//获取二值信号量
+		printf("low task Running!\r\n");
+		for(times=0;times<5000000;times++)				//模拟低优先级任务占用二值信号量
+		{
+			taskYIELD();								//发起任务调度
+		}
+		xSemaphoreGive(BinarySemaphore);				//释放二值信号量
+		vTaskDelay(1000);	//延时1s，也就是1000个时钟节拍	
 	}
 }
 
