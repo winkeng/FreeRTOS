@@ -14,32 +14,25 @@
 #include "semphr.h"
 #include "key.h"
 #include "string.h"
-
+#include "timers.h"
 
 #define START_TASK_PRIO  1      		//任务优先级
 #define START_STK_SIZE   128    		//任务堆栈大小
 TaskHandle_t StartTask_Handler;    		//任务句柄
 void start_task(void *pvParameters);  	//任务函数
 
-#define LOW_TASK_PRIO		    2      //任务优先级
-#define LOW_STK_SIZE		    128    //任务堆栈大小
-TaskHandle_t LowTask_Handler;		   //任务句柄
-void low_task(void *pvParameters);   //任务函数
-
-#define MIDDLE_TASK_PRIO	3      //任务优先级
-#define MIDDLE_STK_SIZE		128    //任务堆栈大小
-TaskHandle_t MiddleTask_Handler;		   //任务句柄
-void middle_task(void *pvParameters);   //任务函数
-
-#define HIGH_TASK_PRIO	4      //任务优先级
-#define HIGH_STK_SIZE		128    //任务堆栈大小
-TaskHandle_t HighTask_Handler;		   //任务句柄
-void high_task(void *pvParameters);   //任务函数
+#define TIMERCONTROL_TASK_PRIO		    2      //任务优先级
+#define TIMERCONTROL_STK_SIZE		    128    //任务堆栈大小
+TaskHandle_t TimerControlTask_Handler;		   //任务句柄
+void timercontrol_task(void *pvParameters);   //任务函数
 
 
-//二值信号量句柄
-SemaphoreHandle_t MutexSemaphore;	//二值信号量
 
+TimerHandle_t AutoReloadTimer_Handle;		//周期定时器句柄
+TimerHandle_t	OneShotTimer_Handle;			//单次定时器句柄
+
+void AutoReloadCallback(TimerHandle_t xTimer); 	//周期定时器回调函数
+void OneShotCallback(TimerHandle_t xTimer);		  //单次定时器回调函数
 
 
 /****
@@ -74,75 +67,75 @@ void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
 	
-		//创建互斥信号量
-		MutexSemaphore=xSemaphoreCreateMutex();
-	
-    //创建TASK1任务
-    xTaskCreate((TaskFunction_t )high_task,     	
-                (const char*    )"high_task",
-                (uint16_t       )HIGH_STK_SIZE, 
-                (void*          )NULL,				
-                (UBaseType_t    )HIGH_TASK_PRIO,	
-                (TaskHandle_t*  )&HighTask_Handler);    
-    //创建TASK1任务
-    xTaskCreate((TaskFunction_t )middle_task,     	
-                (const char*    )"middle_task",
-                (uint16_t       )MIDDLE_STK_SIZE, 
-                (void*          )NULL,				
-                (UBaseType_t    )MIDDLE_TASK_PRIO,	
-                (TaskHandle_t*  )&MiddleTask_Handler);    
-    //创建TASK1任务
-    xTaskCreate((TaskFunction_t )low_task,     	
-                (const char*    )"low_task",
-                (uint16_t       )LOW_STK_SIZE, 
-                (void*          )NULL,				
-                (UBaseType_t    )LOW_TASK_PRIO,	
-                (TaskHandle_t*  )&LowTask_Handler);    
+    //创建软件周期定时器
+    AutoReloadTimer_Handle=xTimerCreate((const char*		)"AutoReloadTimer",
+									        (TickType_t			)1000,
+							            (UBaseType_t		)pdTRUE,
+							            (void*				)1,
+							            (TimerCallbackFunction_t)AutoReloadCallback); //周期定时器，周期1s(1000个时钟节拍)，周期模式
+		//创建单次定时器
+		OneShotTimer_Handle=xTimerCreate((const char*			)"OneShotTimer",
+												 (TickType_t			)2000,
+												 (UBaseType_t			)pdFALSE,
+												 (void*					)2,
+												 (TimerCallbackFunction_t)OneShotCallback); //单次定时器，周期2s(2000个时钟节拍)，单次模式					  
+		//创建定时器控制任务
+		xTaskCreate((TaskFunction_t )timercontrol_task,             
+								(const char*    )"timercontrol_task",           
+								(uint16_t       )TIMERCONTROL_STK_SIZE,        
+								(void*          )NULL,                  
+								(UBaseType_t    )TIMERCONTROL_TASK_PRIO,        
+								(TaskHandle_t*  )&TimerControlTask_Handler);    
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
 
-
-//高优先级任务的任务函数
-void high_task(void *pvParameters)
-{	
-	while(1)
-	{	
-		vTaskDelay(500); 
-		printf("high task Pend Sem\r\n");
-		xSemaphoreTake(MutexSemaphore,portMAX_DELAY);	//获取互斥信号量
-		printf("high task Running!\r\n");
-		xSemaphoreGive(MutexSemaphore);				//释放信号量
-		vTaskDelay(500); 
-	}
-}
-
-//中等优先级任务的任务函数
-void middle_task(void *pvParameters)
+//TimerControl的任务函数
+void timercontrol_task(void *pvParameters)
 {
+	u8 key;
+	
 	while(1)
 	{
-		printf("middle task Running!\r\n");
-		vTaskDelay(1000);                               //延时1s，也就是1000个时钟节拍	
-	}
-}
-
-//低优先级任务的任务函数
-void low_task(void *pvParameters)
-{
-	static u32 times;
-
-	while(1)
-	{
-		xSemaphoreTake(MutexSemaphore,portMAX_DELAY);	//获取互斥信号量
-		printf("low task Running!\r\n");
-		for(times=0;times<5000000;times++)				//模拟低优先级任务占用二值信号量
+		//只有两个定时器都创建成功了才能对其进行操作
+		if((AutoReloadTimer_Handle!=NULL)&&(OneShotTimer_Handle!=NULL))
 		{
-			taskYIELD();								//发起任务调度
+			key = key_scan();
+			switch(key)
+			{
+				case 0x02:     //当key_up按下的话打开周期定时器
+					xTimerStart(AutoReloadTimer_Handle,0);	//开启周期定时器
+					printf("开启定时器1\r\n");
+					break;
+				
+				case 0x03:		//当key0按下的话打开单次定时器
+					xTimerStart(OneShotTimer_Handle,0);		//开启单次定时器
+					printf("开启定时器2\r\n");
+					break;
+				
+				case 0x01:		//当key1按下话就关闭定时器
+					xTimerStop(AutoReloadTimer_Handle,0); 	//关闭周期定时器
+					xTimerStop(OneShotTimer_Handle,0); 		  //关闭单次定时器
+					printf("关闭定时器1和2\r\n");
+					break;	
+			}
 		}
-		xSemaphoreGive(MutexSemaphore);				//释放互斥信号量
-		vTaskDelay(1000);	//延时1s，也就是1000个时钟节拍	
+
+    vTaskDelay(200); //延时10ms，也就是10个时钟节拍
 	}
+}
+
+
+//周期定时器的回调函数
+void AutoReloadCallback(TimerHandle_t xTimer)
+{
+	printf("周期定时器运行\r\n");
+}
+
+//单次定时器的回调函数
+void OneShotCallback(TimerHandle_t xTimer)
+{
+  printf("单次定时器运行\r\n");
 }
 
 
