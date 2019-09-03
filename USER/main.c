@@ -15,24 +15,36 @@
 #include "key.h"
 #include "string.h"
 #include "timers.h"
+#include "event_groups.h"
 
 #define START_TASK_PRIO  1      		//任务优先级
 #define START_STK_SIZE   128    		//任务堆栈大小
 TaskHandle_t StartTask_Handler;    		//任务句柄
 void start_task(void *pvParameters);  	//任务函数
 
-#define TIMERCONTROL_TASK_PRIO		    2      //任务优先级
-#define TIMERCONTROL_STK_SIZE		    128    //任务堆栈大小
-TaskHandle_t TimerControlTask_Handler;		   //任务句柄
-void timercontrol_task(void *pvParameters);   //任务函数
+#define EVENTSETBIT_TASK_PRIO		    2      //任务优先级
+#define EVENTSETBIT_STK_SIZE		    256    //任务堆栈大小
+TaskHandle_t EventSetBit_Handler;		   //任务句柄
+void eventsetbit_task(void *pvParameters);   //任务函数
+
+#define EVENTGROUP_TASK_PRIO		    3      //任务优先级
+#define EVENTGROUP_STK_SIZE		    256    //任务堆栈大小
+TaskHandle_t EventGroupTask_Handler;		   //任务句柄
+void eventgroup_task(void *pvParameters);   //任务函数
+
+#define EVENTQUERY_TASK_PRIO		    4      //任务优先级
+#define EVENTQUERY_STK_SIZE		    256    //任务堆栈大小
+TaskHandle_t EventQueryTask_Handler;		   //任务句柄
+void eventquery_task(void *pvParameters);   //任务函数
+
+////////////////////////////////////////////////////////
+EventGroupHandle_t EventGroupHandler;	//事件标志组句柄
 
 
-
-TimerHandle_t AutoReloadTimer_Handle;		//周期定时器句柄
-TimerHandle_t	OneShotTimer_Handle;			//单次定时器句柄
-
-void AutoReloadCallback(TimerHandle_t xTimer); 	//周期定时器回调函数
-void OneShotCallback(TimerHandle_t xTimer);		  //单次定时器回调函数
+//事件位	
+#define EVENTBIT_1	(1<<1)
+#define EVENTBIT_2	(1<<2)
+#define EVENTBIT_ALL	(EVENTBIT_1|EVENTBIT_2)
 
 
 /****
@@ -67,80 +79,103 @@ void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
 	
-    //创建软件周期定时器
-    AutoReloadTimer_Handle=xTimerCreate((const char*		)"AutoReloadTimer",
-									        (TickType_t			)1000,
-							            (UBaseType_t		)pdTRUE,
-							            (void*				)1,
-							            (TimerCallbackFunction_t)AutoReloadCallback); //周期定时器，周期1s(1000个时钟节拍)，周期模式
-		//创建单次定时器
-		OneShotTimer_Handle=xTimerCreate((const char*			)"OneShotTimer",
-												 (TickType_t			)2000,
-												 (UBaseType_t			)pdFALSE,
-												 (void*					)2,
-												 (TimerCallbackFunction_t)OneShotCallback); //单次定时器，周期2s(2000个时钟节拍)，单次模式					  
-		//创建定时器控制任务
-		xTaskCreate((TaskFunction_t )timercontrol_task,             
-								(const char*    )"timercontrol_task",           
-								(uint16_t       )TIMERCONTROL_STK_SIZE,        
-								(void*          )NULL,                  
-								(UBaseType_t    )TIMERCONTROL_TASK_PRIO,        
-								(TaskHandle_t*  )&TimerControlTask_Handler);    
+			//创建事件标志组
+		EventGroupHandler=xEventGroupCreate();	 //创建事件标志组
+	
+	  //创建设置事件位的任务
+    xTaskCreate((TaskFunction_t )eventsetbit_task,             
+                (const char*    )"eventsetbit_task",           
+                (uint16_t       )EVENTSETBIT_STK_SIZE,        
+                (void*          )NULL,                  
+                (UBaseType_t    )EVENTSETBIT_TASK_PRIO,        
+                (TaskHandle_t*  )&EventSetBit_Handler);   	
+    //创建事件标志组处理任务
+    xTaskCreate((TaskFunction_t )eventgroup_task,             
+                (const char*    )"eventgroup_task",           
+                (uint16_t       )EVENTGROUP_STK_SIZE,        
+                (void*          )NULL,                  
+                (UBaseType_t    )EVENTGROUP_TASK_PRIO,        
+                (TaskHandle_t*  )&EventGroupTask_Handler);  
+	  //创建事件标志组查询任务
+    xTaskCreate((TaskFunction_t )eventquery_task,             
+                (const char*    )"eventquery_task",           
+                (uint16_t       )EVENTQUERY_STK_SIZE,        
+                (void*          )NULL,                  
+                (UBaseType_t    )EVENTQUERY_TASK_PRIO,        
+                (TaskHandle_t*  )&EventQueryTask_Handler);    
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
 
-//TimerControl的任务函数
-void timercontrol_task(void *pvParameters)
+//设置事件位的任务
+void eventsetbit_task(void *pvParameters)
 {
 	u8 key;
-	
 	while(1)
 	{
-		//只有两个定时器都创建成功了才能对其进行操作
-		if((AutoReloadTimer_Handle!=NULL)&&(OneShotTimer_Handle!=NULL))
+		if(EventGroupHandler!=NULL)
 		{
-			key = key_scan();
+			key=key_scan();
 			switch(key)
 			{
-				case 0x02:     //当key_up按下的话打开周期定时器
-					xTimerStart(AutoReloadTimer_Handle,0);	//开启周期定时器
-					printf("开启定时器1\r\n");
+				case 0x02:
+					xEventGroupSetBits(EventGroupHandler,EVENTBIT_1);
 					break;
-				
-				case 0x03:		//当key0按下的话打开单次定时器
-					xTimerStart(OneShotTimer_Handle,0);		//开启单次定时器
-					printf("开启定时器2\r\n");
-					break;
-				
-				case 0x01:		//当key1按下话就关闭定时器
-					xTimerStop(AutoReloadTimer_Handle,0); 	//关闭周期定时器
-					xTimerStop(OneShotTimer_Handle,0); 		  //关闭单次定时器
-					printf("关闭定时器1和2\r\n");
+				case 0x03:
+					xEventGroupSetBits(EventGroupHandler,EVENTBIT_2);
 					break;	
 			}
 		}
-
-    vTaskDelay(200); //延时10ms，也就是10个时钟节拍
+    
+		vTaskDelay(50); //延时50ms，也就是10个时钟节拍
 	}
 }
 
 
-//周期定时器的回调函数
-void AutoReloadCallback(TimerHandle_t xTimer)
+//事件标志组处理任务
+void eventgroup_task(void *pvParameters)
 {
-	printf("周期定时器运行\r\n");
+	EventBits_t EventValue;
+	
+	while(1)
+	{
+		vTaskDelay(2000); //延时2s
+		
+		if(EventGroupHandler!=NULL)
+		{
+			//等待事件组中的相应事件位
+			EventValue=xEventGroupWaitBits((EventGroupHandle_t	)EventGroupHandler,		
+										   (EventBits_t			)EVENTBIT_ALL,
+										   (BaseType_t			)pdTRUE,				
+										   (BaseType_t			)pdTRUE,
+								       (TickType_t			)portMAX_DELAY);	
+			printf("事件标志组的值:%d\r\n",EventValue);
+		}
+	}
 }
 
-//单次定时器的回调函数
-void OneShotCallback(TimerHandle_t xTimer)
-{
-  printf("单次定时器运行\r\n");
+
+//事件查询任务
+void eventquery_task(void *pvParameters)
+{	
+	EventBits_t NewValue,LastValue;
+	
+	while(1)
+	{
+		if(EventGroupHandler!=NULL)
+		{
+			NewValue=xEventGroupGetBits(EventGroupHandler);	//获取事件组的
+			
+			if(NewValue != LastValue)
+			{
+				LastValue=NewValue;
+				printf("**事件标志组的值:%d\r\n",NewValue);
+			}
+		}
+
+		vTaskDelay(50); //延时50ms，也就是50个时钟节拍
+	}
 }
-
-
-
-
 
 
 
