@@ -14,38 +14,25 @@
 #include "semphr.h"
 #include "key.h"
 #include "string.h"
-#include "timers.h"
-#include "event_groups.h"
+
 
 #define START_TASK_PRIO  1      		//任务优先级
 #define START_STK_SIZE   128    		//任务堆栈大小
 TaskHandle_t StartTask_Handler;    		//任务句柄
 void start_task(void *pvParameters);  	//任务函数
 
-#define EVENTSETBIT_TASK_PRIO		    2      //任务优先级
-#define EVENTSETBIT_STK_SIZE		    256    //任务堆栈大小
-TaskHandle_t EventSetBit_Handler;		   //任务句柄
-void eventsetbit_task(void *pvParameters);   //任务函数
+#define TASK1_TASK_PRIO		    2      //任务优先级
+#define TASK1_STK_SIZE		    128    //任务堆栈大小
+TaskHandle_t Task1Task_Handler;		   //任务句柄
+void task1_task(void *pvParameters);   //任务函数
 
-#define EVENTGROUP_TASK_PRIO		    3      //任务优先级
-#define EVENTGROUP_STK_SIZE		    256    //任务堆栈大小
-TaskHandle_t EventGroupTask_Handler;		   //任务句柄
-void eventgroup_task(void *pvParameters);   //任务函数
-
-#define EVENTQUERY_TASK_PRIO		    4      //任务优先级
-#define EVENTQUERY_STK_SIZE		    256    //任务堆栈大小
-TaskHandle_t EventQueryTask_Handler;		   //任务句柄
-void eventquery_task(void *pvParameters);   //任务函数
-
-////////////////////////////////////////////////////////
-EventGroupHandle_t EventGroupHandler;	//事件标志组句柄
+#define DATAPROCESS_TASK_PRIO	3      //任务优先级
+#define DATAPROCESS_STK_SIZE		128    //任务堆栈大小
+TaskHandle_t DataProcess_Handler;		   //任务句柄
+void DataProcess_task(void *pvParameters);   //任务函数
 
 
-//事件位	
-#define EVENTBIT_1	(1<<1)
-#define EVENTBIT_2	(1<<2)
-#define EVENTBIT_ALL	(EVENTBIT_1|EVENTBIT_2)
-
+extern u8 USART_RX_BUF[USART_REC_LEN];
 
 /****
 	* @func main program
@@ -79,103 +66,72 @@ void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
 	
-			//创建事件标志组
-		EventGroupHandler=xEventGroupCreate();	 //创建事件标志组
-	
-	  //创建设置事件位的任务
-    xTaskCreate((TaskFunction_t )eventsetbit_task,             
-                (const char*    )"eventsetbit_task",           
-                (uint16_t       )EVENTSETBIT_STK_SIZE,        
-                (void*          )NULL,                  
-                (UBaseType_t    )EVENTSETBIT_TASK_PRIO,        
-                (TaskHandle_t*  )&EventSetBit_Handler);   	
-    //创建事件标志组处理任务
-    xTaskCreate((TaskFunction_t )eventgroup_task,             
-                (const char*    )"eventgroup_task",           
-                (uint16_t       )EVENTGROUP_STK_SIZE,        
-                (void*          )NULL,                  
-                (UBaseType_t    )EVENTGROUP_TASK_PRIO,        
-                (TaskHandle_t*  )&EventGroupTask_Handler);  
-	  //创建事件标志组查询任务
-    xTaskCreate((TaskFunction_t )eventquery_task,             
-                (const char*    )"eventquery_task",           
-                (uint16_t       )EVENTQUERY_STK_SIZE,        
-                (void*          )NULL,                  
-                (UBaseType_t    )EVENTQUERY_TASK_PRIO,        
-                (TaskHandle_t*  )&EventQueryTask_Handler);    
+    //创建TASK1任务
+    xTaskCreate((TaskFunction_t )task1_task,     	
+                (const char*    )"task1_task",
+                (uint16_t       )TASK1_STK_SIZE, 
+                (void*          )NULL,				
+                (UBaseType_t    )TASK1_TASK_PRIO,	
+                (TaskHandle_t*  )&Task1Task_Handler);    
+    //创建TASK1任务
+    xTaskCreate((TaskFunction_t )DataProcess_task,     	
+                (const char*    )"DataProcess_task",
+                (uint16_t       )DATAPROCESS_STK_SIZE, 
+                (void*          )NULL,				
+                (UBaseType_t    )DATAPROCESS_TASK_PRIO,	
+                (TaskHandle_t*  )&DataProcess_Handler);    
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
 
-//设置事件位的任务
-void eventsetbit_task(void *pvParameters)
+
+//task1 任务函数 
+void task1_task(void* pvParameters)
 {
-	u8 key;
 	while(1)
 	{
-		if(EventGroupHandler!=NULL)
-		{
-			key=key_scan();
-			switch(key)
-			{
-				case 0x02:
-					xEventGroupSetBits(EventGroupHandler,EVENTBIT_1);
-					break;
-				case 0x03:
-					xEventGroupSetBits(EventGroupHandler,EVENTBIT_2);
-					break;	
-			}
-		}
-    
-		vTaskDelay(50); //延时50ms，也就是10个时钟节拍
+		LED1_Toggle();
+		vTaskDelay(500);
 	}
+	
 }
 
-
-//事件标志组处理任务
-void eventgroup_task(void *pvParameters)
+//DataProcess_task 任务函数 
+void DataProcess_task(void* pvParameters)
 {
-	EventBits_t EventValue;
-	
+	u32 NotifyValue;
+
 	while(1)
 	{
-		vTaskDelay(2000); //延时2s
-		
-		if(EventGroupHandler!=NULL)
-		{
-			//等待事件组中的相应事件位
-			EventValue=xEventGroupWaitBits((EventGroupHandle_t	)EventGroupHandler,		
-										   (EventBits_t			)EVENTBIT_ALL,
-										   (BaseType_t			)pdTRUE,				
-										   (BaseType_t			)pdTRUE,
-								       (TickType_t			)portMAX_DELAY);	
-			printf("事件标志组的值:%d\r\n",EventValue);
-		}
-	}
-}
-
-
-//事件查询任务
-void eventquery_task(void *pvParameters)
-{	
-	EventBits_t NewValue,LastValue;
-	
-	while(1)
-	{
-		if(EventGroupHandler!=NULL)
-		{
-			NewValue=xEventGroupGetBits(EventGroupHandler);	//获取事件组的
-			
-			if(NewValue != LastValue)
+			NotifyValue=ulTaskNotifyTake(pdTRUE, portMAX_DELAY);	//获取任务通知
+			if(NotifyValue == 1)										//获取信号量成功
 			{
-				LastValue=NewValue;
-				printf("**事件标志组的值:%d\r\n",NewValue);
+				if(strncmp((char *)USART_RX_BUF, "LED", strlen("LED")) == 0)
+				{
+					printf("LED CMD\r\n");
+				}
+				else if(strncmp((char *)USART_RX_BUF, "KEY", strlen("KEY")) == 0)
+				{
+					printf("KEY CMD\r\n");
+				}
+				else
+				{
+					printf("Invalid CMD!!!\r\n");
+				}
+				
+				USART_RX_STA=0;
+				memset(USART_RX_BUF,0,USART_REC_LEN);			//串口接收缓冲区清零
 			}
-		}
-
-		vTaskDelay(50); //延时50ms，也就是50个时钟节拍
+			else
+			{
+				vTaskDelay(10);      //延时10ms，也就是10个时钟节拍	
+			}
 	}
 }
+
+
+
+
 
 
 

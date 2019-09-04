@@ -1001,7 +1001,6 @@ typedef QueueHandle_t SemaphoreHandle_t;
  * \defgroup xSemaphoreCreateCounting xSemaphoreCreateCounting
  * \ingroup Semaphores
  */
-/* 创建一个计数型信号量 */ 
 #if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
 	#define xSemaphoreCreateCounting( uxMaxCount, uxInitialCount ) xQueueCreateCountingSemaphore( ( uxMaxCount ), ( uxInitialCount ) )
 #endif
