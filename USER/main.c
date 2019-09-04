@@ -14,6 +14,8 @@
 #include "semphr.h"
 #include "key.h"
 #include "string.h"
+#include "timers.h"
+#include "event_groups.h"
 #include "limits.h"
 
 #define START_TASK_PRIO  1      		//任务优先级
@@ -21,20 +23,27 @@
 TaskHandle_t StartTask_Handler;    		//任务句柄
 void start_task(void *pvParameters);  	//任务函数
 
-#define TASK1_TASK_PRIO		    2      //任务优先级
-#define TASK1_STK_SIZE		    128    //任务堆栈大小
-TaskHandle_t Task1Task_Handler;		   //任务句柄
-void task1_task(void *pvParameters);   //任务函数
+#define EVENTSETBIT_TASK_PRIO		    2      //任务优先级
+#define EVENTSETBIT_STK_SIZE		    256    //任务堆栈大小
+TaskHandle_t EventSetBit_Handler;		   //任务句柄
+void eventsetbit_task(void *pvParameters);   //任务函数
 
-#define KEYPROCESS_TASK_PRIO	3      //任务优先级
-#define KEYPROCESS_STK_SIZE		128    //任务堆栈大小
-TaskHandle_t KeyProcess_Handler;		   //任务句柄
-void KeyProcess_task(void *pvParameters);   //任务函数
+#define EVENTGROUP_TASK_PRIO		    3      //任务优先级
+#define EVENTGROUP_STK_SIZE		    256    //任务堆栈大小
+TaskHandle_t EventGroupTask_Handler;		   //任务句柄
+void eventgroup_task(void *pvParameters);   //任务函数
+
+#define EVENTQUERY_TASK_PRIO		    4      //任务优先级
+#define EVENTQUERY_STK_SIZE		    256    //任务堆栈大小
+TaskHandle_t EventQueryTask_Handler;		   //任务句柄
+void eventquery_task(void *pvParameters);   //任务函数
 
 
-//按键消息队列的数量
-#define KEYMSG_Q_NUM	1		//按键消息队列的数量
-#define MESSAGE_Q_NUM	4		//发送数据的消息队列的数量
+
+//事件位	
+#define EVENTBIT_1	(1<<1)
+#define EVENTBIT_2	(1<<2)
+#define EVENTBIT_ALL	(EVENTBIT_1|EVENTBIT_2)
 
 
 /****
@@ -47,6 +56,9 @@ int main(void)
 	uart_init(115200);					//初始化串口
 	KEY_Init();
 	LED_Init();
+	
+	printf("create start task!!!\r\n");
+	
 	//创建开始任务函数
 	xTaskCreate( (TaskFunction_t )start_task,         //任务函数
 							 (const char*    )"start_task",       //任务名称
@@ -66,80 +78,81 @@ void start_task(void *pvParameters)
 {
     taskENTER_CRITICAL();           //进入临界区
 	
-    //创建TASK1任务
-    xTaskCreate((TaskFunction_t )task1_task,     	
-                (const char*    )"task1_task",
-                (uint16_t       )TASK1_STK_SIZE, 
-                (void*          )NULL,				
-                (UBaseType_t    )TASK1_TASK_PRIO,	
-                (TaskHandle_t*  )&Task1Task_Handler);    
-    //创建TASK1任务
-    xTaskCreate((TaskFunction_t )KeyProcess_task,     	
-                (const char*    )"KeyProcess_task",
-                (uint16_t       )KEYPROCESS_STK_SIZE, 
-                (void*          )NULL,				
-                (UBaseType_t    )KEYPROCESS_TASK_PRIO,	
-                (TaskHandle_t*  )&KeyProcess_Handler);    
+	  //创建设置事件位的任务
+    xTaskCreate((TaskFunction_t )eventsetbit_task,             
+                (const char*    )"eventsetbit_task",           
+                (uint16_t       )EVENTSETBIT_STK_SIZE,        
+                (void*          )NULL,                  
+                (UBaseType_t    )EVENTSETBIT_TASK_PRIO,        
+                (TaskHandle_t*  )&EventSetBit_Handler);   	
+    //创建事件标志组处理任务
+    xTaskCreate((TaskFunction_t )eventgroup_task,             
+                (const char*    )"eventgroup_task",           
+                (uint16_t       )EVENTGROUP_STK_SIZE,        
+                (void*          )NULL,                  
+                (UBaseType_t    )EVENTGROUP_TASK_PRIO,        
+                (TaskHandle_t*  )&EventGroupTask_Handler);  
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
 
-
-//task1 任务函数 
-void task1_task(void* pvParameters)
+//设置事件位的任务
+void eventsetbit_task(void *pvParameters)
 {
 	u8 key;
-	BaseType_t err;
 	
 	while(1)
 	{
-		key = key_scan();
-
-		if((KeyProcess_Handler!=NULL) && (key != 0x00))   
+		if(EventGroupTask_Handler!=NULL)
 		{
-			err=xTaskNotify((TaskHandle_t	)KeyProcess_Handler,		    //接收任务通知的任务句柄
-											(uint32_t		)key,						              //任务通知值
-											(eNotifyAction	)eSetValueWithOverwrite);	//覆写的方式发送任务通知			
-			if(err == pdFAIL)
+			key=key_scan();
+			switch(key)
 			{
-				printf("任务通知发送失败\r\n");
+				case 0x02:
+					xTaskNotify((TaskHandle_t	)EventGroupTask_Handler,//接收任务通知的任务句柄
+								      (uint32_t		)EVENTBIT_1,			        //要更新的bit
+								      (eNotifyAction	)eSetBits);				    //更新指定的bit
+					break;
+				case 0x03:
+					xTaskNotify((TaskHandle_t	)EventGroupTask_Handler,//接收任务通知的任务句柄
+								      (uint32_t		)EVENTBIT_2,			        //要更新的bit
+								      (eNotifyAction	)eSetBits);				    //更新指定的bit
+					break;	
 			}
 		}
-		
-		vTaskDelay(200);
+    
+		vTaskDelay(200); //延时200ms，也就是10个时钟节拍
 	}
-	
 }
 
-//KeyProcess_task 任务函数 
-void KeyProcess_task(void* pvParameters)
+
+//事件标志组处理任务
+void eventgroup_task(void *pvParameters)
 {
 	BaseType_t err;
 	uint32_t NotifyValue;
 	
 	while(1)
 	{
-		err=xTaskNotifyWait((uint32_t	)0x00,	            //进入函数的时候不清除任务bit
-							          (uint32_t	)ULONG_MAX,			    //退出函数的时候清除所有的bit
-							          (uint32_t*	)&NotifyValue,		//保存任务通知值
-							          (TickType_t	)portMAX_DELAY);	//阻塞时间		
+		//获取任务通知值
+		err=xTaskNotifyWait((uint32_t	)0x00,    //进入函数的时候不清除任务bit
+							(uint32_t	)ULONG_MAX,			    //退出函数的时候清除所有的bit
+							(uint32_t*	)&NotifyValue,		//保存任务通知值
+							(TickType_t	)portMAX_DELAY);	//阻塞时间
 		
-		if(err == pdTRUE)
+		if(err==pdPASS)	   //任务通知获取成功
 		{
-				switch(NotifyValue)
-				{
-					case 0x02: printf("key 2\r\n"); break;
-					
-					case 0x03: printf("key 3\r\n"); break;
-				}
+			if((NotifyValue&EVENTBIT_1)!=0)	//事件1发生	
+			{
+				printf("事件1发生\r\n");
+			}
+			else if((NotifyValue&EVENTBIT_2)!=0)	//事件2发生	
+			{
+				printf("事件2发生\r\n");
+			}
 		}
-		
-		vTaskDelay(10);
 	}
 }
-
-
-
 
 
 
