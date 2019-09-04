@@ -21,18 +21,18 @@
 TaskHandle_t StartTask_Handler;    		//任务句柄
 void start_task(void *pvParameters);  	//任务函数
 
-#define TASK1_TASK_PRIO		    2      //任务优先级
-#define TASK1_STK_SIZE		    128    //任务堆栈大小
-TaskHandle_t Task1Task_Handler;		   //任务句柄
-void task1_task(void *pvParameters);   //任务函数
+#define SEMAPGIVE_TASK_PRIO		    2      //任务优先级
+#define SEMAPGIVE_STK_SIZE		    128    //任务堆栈大小
+TaskHandle_t SemapGiveTask_Handler;		   //任务句柄
+void SemapGive_task(void *pvParameters);   //任务函数
 
-#define DATAPROCESS_TASK_PRIO	3      //任务优先级
-#define DATAPROCESS_STK_SIZE		128    //任务堆栈大小
-TaskHandle_t DataProcess_Handler;		   //任务句柄
-void DataProcess_task(void *pvParameters);   //任务函数
+#define SEMAPTAKE_TASK_PRIO	3      //任务优先级
+#define SEMAPTAKE_STK_SIZE		128    //任务堆栈大小
+TaskHandle_t SemapTakeTask_Handler;		   //任务句柄
+void SemapTake_task(void *pvParameters);   //任务函数
 
 
-extern u8 USART_RX_BUF[USART_REC_LEN];
+
 
 /****
 	* @func main program
@@ -67,65 +67,56 @@ void start_task(void *pvParameters)
     taskENTER_CRITICAL();           //进入临界区
 	
     //创建TASK1任务
-    xTaskCreate((TaskFunction_t )task1_task,     	
-                (const char*    )"task1_task",
-                (uint16_t       )TASK1_STK_SIZE, 
+    xTaskCreate((TaskFunction_t )SemapGive_task,     	
+                (const char*    )"SemapGive_task",
+                (uint16_t       )SEMAPGIVE_STK_SIZE, 
                 (void*          )NULL,				
-                (UBaseType_t    )TASK1_TASK_PRIO,	
-                (TaskHandle_t*  )&Task1Task_Handler);    
+                (UBaseType_t    )SEMAPGIVE_TASK_PRIO,	
+                (TaskHandle_t*  )&SemapGiveTask_Handler);    
     //创建TASK1任务
-    xTaskCreate((TaskFunction_t )DataProcess_task,     	
-                (const char*    )"DataProcess_task",
-                (uint16_t       )DATAPROCESS_STK_SIZE, 
+    xTaskCreate((TaskFunction_t )SemapTake_task,     	
+                (const char*    )"SemapTake_task",
+                (uint16_t       )SEMAPTAKE_STK_SIZE, 
                 (void*          )NULL,				
-                (UBaseType_t    )DATAPROCESS_TASK_PRIO,	
-                (TaskHandle_t*  )&DataProcess_Handler);    
+                (UBaseType_t    )SEMAPTAKE_TASK_PRIO,	
+                (TaskHandle_t*  )&SemapTakeTask_Handler);    
     vTaskDelete(StartTask_Handler); //删除开始任务
     taskEXIT_CRITICAL();            //退出临界区
 }
 
 
-//task1 任务函数 
-void task1_task(void* pvParameters)
+//释放计数型信号量任务函数
+void SemapGive_task(void* pvParameters)
 {
+	uint8_t key;
+	BaseType_t err;
+	
 	while(1)
 	{
-		LED1_Toggle();
-		vTaskDelay(500);
+		key = key_scan();
+		if(key == 0x02)
+		{
+			err = xTaskNotifyGive(SemapTakeTask_Handler);//发送任务通知
+			if(err == pdFALSE)
+			{
+				printf("信号量释放失败!!!\r\n");
+			}				
+		}
+		
+		vTaskDelay(200); 
 	}
 	
 }
 
-//DataProcess_task 任务函数 
-void DataProcess_task(void* pvParameters)
+//获取计数型信号量任务函数
+void SemapTake_task(void* pvParameters)
 {
-	u32 NotifyValue;
+	uint32_t NotifyValue;
 
 	while(1)
 	{
-			NotifyValue=ulTaskNotifyTake(pdTRUE, portMAX_DELAY);	//获取任务通知
-			if(NotifyValue == 1)										//获取信号量成功
-			{
-				if(strncmp((char *)USART_RX_BUF, "LED", strlen("LED")) == 0)
-				{
-					printf("LED CMD\r\n");
-				}
-				else if(strncmp((char *)USART_RX_BUF, "KEY", strlen("KEY")) == 0)
-				{
-					printf("KEY CMD\r\n");
-				}
-				else
-				{
-					printf("Invalid CMD!!!\r\n");
-				}
-				
-				USART_RX_STA=0;
-				memset(USART_RX_BUF,0,USART_REC_LEN);			//串口接收缓冲区清零
-			}
-			else
-			{
-				vTaskDelay(10);      //延时10ms，也就是10个时钟节拍	
-			}
+		NotifyValue = ulTaskNotifyTake(pdFALSE,portMAX_DELAY); //获取任务通知
+		printf("NotifyValue=%d\r\n", NotifyValue);
 	}
 }
 

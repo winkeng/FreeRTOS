@@ -4,7 +4,7 @@
 #include "task.h"
 #include "semphr.h"	  
 
-extern TaskHandle_t DataProcess_Handler;		   //任务句柄
+
 
 u8 USART_RX_BUF[USART_REC_LEN];     //接收缓冲,最大USART_REC_LEN个字节.
 //接收状态
@@ -60,7 +60,6 @@ void uart_init(u32 bound)
 void USART1_IRQHandler(void)                	//串口1中断服务程序
 {
 	u8 Res;
-	BaseType_t xHigherPriorityTaskWoken;
 	
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
 	{
@@ -94,13 +93,6 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 				}
 			}   		 
    } 
-	
-	//发送任务通知
-	if((USART_RX_STA&0x8000)&&(DataProcess_Handler!=NULL))//接收到数据，并且接收任务通知的任务有效
-	{
-		vTaskNotifyGiveFromISR(DataProcess_Handler,&xHigherPriorityTaskWoken);//发送任务通知
-		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);//如果需要的话进行一次任务切换
-	}
 	
 	USART_ClearITPendingBit(USART1, USART_IT_RXNE);
 } 
